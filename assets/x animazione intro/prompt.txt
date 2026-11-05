@@ -1,0 +1,19 @@
+1. Per l'atmosfera iniziale e le candele (Usa l'immagine con il libro steso o il menu)
+
+Prompt: Slow motion cinematografico. Un antico libro aperto appoggiato su un tavolo di legno scuro. Le calde fiamme delle due candele sfarfallano dolcemente. Sottili granelli di polvere magica e luminosa fluttuano nell'aria attorno al libro. Atmosfera accogliente, magica e misteriosa, altamente dettagliata.
+(Cosa fa: Mantiene il libro immobile ma fa muovere in modo realistico le fiamme delle candele, aggiungendo particelle di polvere nell'aria per dare un effetto 3D e renderlo "vivo").
+
+2. Per l'animazione della pagina che si sfoglia (Usa l'immagine con la pagina alzata a metà)
+
+Prompt: Una spessa pagina di pergamena di un antico libro aperto che viene sfogliata dolcemente e in modo fluido da destra verso sinistra, rivelando una pagina bianca e pulita sottostante. Movimento e fisica della carta realistici. La luce delle candele vibra leggermente mentre la pagina si muove.
+(Cosa fa: Prende l'immagine con la pagina sollevata a metà e completa il movimento, facendola atterrare dolcemente verso sinistra).
+
+3. Per l'apparizione magica di Blue (Usa l'immagine con Blue, la luce e il testo sbiadito)
+
+Prompt: Particelle magiche luminose azzurre e dorate e petali di rosa rossa turbinano dolcemente attorno al piccolo personaggio disegnato a mano sulla pagina di destra. Il testo sulla pagina di sinistra si dissolve lentamente e svanisce nel nulla. Illuminazione fantasy e incantevole.
+(Cosa fa: Anima il vortice di luce e i petali di rosa attorno a Blue, e fa sfumare via gradualmente le scritte rimaste sulla sinistra, come se fossero cancellate da una magia).
+
+4. Per l'animazione del Menu (Usa l'ultima immagine con il menu illuminato e la piuma)
+
+Prompt: Una piuma magica luminosa che levita con un leggero movimento fluttuante (su e giù) accanto alla scritta "NUOVO GIOCO". Il testo emette un morbido bagliore magico dorato e azzurro che pulsa lentamente. Le candele ai lati sfarfallano dolcemente.
+(Cosa fa: Crea l'effetto di "selezione" del menu. La piuma galleggia a mezz'aria e la scritta pulsa di luce, invitando il giocatore a iniziare la partita).

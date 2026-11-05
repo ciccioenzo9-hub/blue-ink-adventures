@@ -82,7 +82,7 @@
       <button class="mi" data-act="opts"   aria-label="Opzioni"     style="left:27.17%;top:36.86%;width:15.14%;height:6.26%"></button>
       <button class="mi" data-act="cont"   aria-label="Continua"    style="left:25.62%;top:46.59%;width:17.86%;height:6.40%"></button>
       <button class="mi" data-act="help"   aria-label="Spiegazioni" style="left:23.29%;top:56.68%;width:21.74%;height:7.30%"></button>
-      <button class="mi txt" data-act="levels" aria-label="Livelli" style="left:27.17%;top:66.41%;width:15.14%;height:6.95%">Livelli</button>
+      <button class="mi txt" data-act="exit" aria-label="Esci" style="left:27.17%;top:66.41%;width:15.14%;height:6.95%">Esci</button>
       <div id="panel"></div>
       <div id="toast"></div>
     </div>
@@ -107,6 +107,8 @@
    ====================================================================== */
 // === LOGIC START ===
 const W = 2752, H = 1536;
+const S7 = 2752 / 1377;                                  // stanza 7: coordinate in px dell'immagine 1377x768 -> px di gioco
+const S6 = 2752 / 1376;                                  // stanza 6: coordinate in px dell'immagine 1376x768 -> px di gioco
 const S5 = 2752 / 1024;                                  // stanza 5: coordinate in px dell'immagine 1024x572 -> px di gioco
 const K = 2752 / 2576;                                   // le immagini del livello 3 sono 2576 px di larghezza
 const P = (a) => a.map(([x, y]) => [x * K, y * K]);       // converte coordinate dell'immagine originale in coordinate di gioco
@@ -316,7 +318,7 @@ const LEVELS = {
     return {
       id: 5, key: 'bg5', file: 'livello5_sfondo.jpg', name: 'Stanza 5', hud: true, hudPatch: false, heartsPatch: false,
       hudOff: { x: -32, y: -48 }, hudW: 262, hudFont: 28, hudTextDx: 150, hudTextDy: 38,                // barra dell'inchiostro sotto i cuori
-      heartsOff: { x: 60, y: 8 }, heartsStep: 62, heartsScale: 0.85, next: null, keepState: true,
+      heartsOff: { x: 60, y: 8 }, heartsStep: 62, heartsScale: 0.85, next: 6, keepState: true,
       spawn: { x: 122 * S5, y: 402 * S5 },                                             // l'omino parte sulla prima roccia (quella in basso)
       terrain: [Q([[180, 535], [480, 535], [600, 512], [1010, 512]])],                                       // pavimento di pietra (a sinistra di x=180 si cade nel vuoto)
       steps: [
@@ -378,7 +380,161 @@ const LEVELS = {
       },
       hint: 'A / D o ←/→ corri  ·  Spazio salta  ·  W / ↑ vicino a una catena: arrampica (Spazio: stacca)  ·  E: leva  ·  attento alle gocce nere  ·  R riavvia'
     };
-  })()
+  })(),
+  /* ---- STANZA 6: Il giardino dei fiori musicali ----
+     1) raccogli l'ingranaggio sul bordo e portalo al grammofono (E): suona le 5 note e i fiori si illuminano nell'ordine
+     2) vicino allo stelo di ogni fiore premi E per suonarlo, nello stesso ordine: Do - Mi - Sol - La - Si (dal basso verso l'alto); gli steli si salgono con W / ↑
+     3) se sbagli: suono stonato, i fiori si spengono e si ricomincia; se indovini: il grammofono suona e la porta si sblocca
+     Coordinate in px dell'immagine 1376x768 (S6 le converte in px di gioco). */
+  6: (() => {
+    const Q = (a) => a.map(([x, y]) => [x * S6, y * S6]);
+    const pl = (x0, x1, y) => ({ x0: x0 * S6, x1: x1 * S6, y: y * S6 });
+    return {
+      id: 6, key: 'bg6', file: 'livello6_sfondo.jpg', name: 'Stanza 6', hud: true, hudPatch: false, heartsPatch: false,
+      hudOff: { x: -32, y: -48 }, hudW: 262, hudFont: 28, hudTextDx: 150, hudTextDy: 38,
+      heartsOff: { x: 60, y: 8 }, heartsStep: 62, heartsScale: 0.85, next: 7, keepState: false,                          // se muori (es. cadi nell'inchiostro) la stanza riparte dall'inizio
+      spawn: { x: 300 * S6, y: 525 * S6 },
+      terrain: [
+        Q([[45, 503], [245, 503]]),                                                  // cima del pilastro (grammofono)
+        Q([[245, 525], [520, 525]]),                                                 // cornicione di pietra (si allunga fino sotto il fiore: dal 3° o 4° gradino lo si raggiunge saltando)
+        Q([[905, 680], [1040, 650], [1376, 650]])                                    // terra sabbiosa fino alla porta
+      ],
+      ramps: [                                                                       // la "scala" di lastre di pietra: si sale camminando, senza dover saltare
+        Q([[470, 641], [535, 641], [560, 611], [580, 610], [603, 573], [625, 572], [650, 526], [690, 525]]),
+        Q([[690, 525], [712, 494]])                                                  // ultimo gradino verso la lastra più alta
+      ],
+      steps: [pl(668, 815, 494), pl(770, 910, 667)],                                 // lastra più alta e grande pietra a destra
+      walls: [],
+      anchors: null,
+      enemies: [                                                                     // un po' di fastidio, senza esagerare
+        { type: 'blob', x0: 2150, x1: 2370, y: 650 * S6, speed: 55 },                // mostro di terra sulla sabbia, prima della porta
+        { type: 'crow', x0: 960, x1: 1300, y: 540 * S6, amp: 50, speed: 110, t0: 0, dir: 1, scale: 0.3 }   // corvo che passa sopra la scala di lastre
+      ],
+      door: { gate: true, x0: 2395, x1: 2564, y0: 960, y1: 1275, panel: { x0: 2395, x1: 2564, y0: 920, y1: 1275 } },
+      sprites: {
+        icona: { key: 'l5_boccetta', file: 'boccetta.png' }                          // boccetta d'inchiostro del HUD
+      },
+      sinfonia: {
+        ropes: [                                                                     // rampicanti per tornare indietro (si afferrano solo stando in piedi, mai in caduta)
+          { x: 448, y0: 525, y1: 641 },                                              // dalla lastra più bassa al cornicione (grammofono)
+          { x: 808, y0: 494, y1: 667 }                                               // dalla grande pietra a destra alla lastra più alta
+        ],
+        flowers: [                                                                   // in ordine di nota: Do, Mi, Sol, La, Si. hit = forma del fiore, use = zona vicino allo stelo (piedi) dove E suona il fiore, glow = luce
+          { hit: { x: 495, y: 505, rx: 80, ry: 65 },   use: { x0: 480, x1: 598, y0: 540, y1: 645 }, gx: 495, gy: 503, gr: 55 },
+          { hit: { x: 878, y: 508, rx: 80, ry: 75 },   use: { x0: 800, x1: 915, y0: 470, y1: 690 }, gx: 880, gy: 512, gr: 55 },
+          { hit: { x: 515, y: 335, rx: 105, ry: 105 }, use: { x0: 598, x1: 672, y0: 380, y1: 585 }, gx: 516, gy: 337, gr: 70 },
+          { hit: { x: 885, y: 320, rx: 110, ry: 110 }, use: { x0: 765, x1: 799, y0: 390, y1: 497 }, gx: 888, gy: 322, gr: 70 },
+          { hit: { x: 690, y: 185, rx: 135, ry: 105 }, use: { x0: 655, x1: 712, y0: 295, y1: 497 }, gx: 692, gy: 192, gr: 80 }
+        ],
+        gramo: { x0: 40, x1: 290, y0: 490, y1: 540 },                                // zona da cui si usa il grammofono
+        crank: { x: 395, y: 525 },                                                   // dove si trova la manovella
+        crankOn: { x: 222, y: 482 },                                                 // dove si appoggia sul grammofono
+        horn: { x: 190, y: 300 }                                                     // da dove escono le note
+      },
+      hint: 'A / D corri  ·  Spazio salta  ·  E: grammofono  ·  vicino allo stelo di un fiore premi E per suonarlo, nell\u2019ordine delle note  ·  per riascoltare la melodia torna al grammofono e premi E  ·  W / ↑ vicino a un rampicante (da fermo): risali  ·  R riavvia'
+    };
+  })(),
+  /* ---- STANZA 7: La Mongolfiera ----
+     Prima inserzione: sfondo, omino a sinistra, cuori + barra inchiostro in alto, petali in diagonale.
+     Per ora si attraversa il vuoto con il ponte d'inchiostro (provvisorio, in attesa dell'enigma vero).
+     Coordinate in px dell'immagine 1377x768 (S7 le converte in px di gioco). */
+  7: (() => {
+    const Q = (a) => a.map(([x, y]) => [x * S7, y * S7]);
+    const R = (v) => Math.round(v * S7);
+    return {
+      id: 7, key: 'bg7', file: 'livello7_sfondo.jpg', name: 'Stanza 7', hud: true, hudPatch: false, heartsPatch: false,
+      hudOff: { x: -32, y: -48 }, hudW: 262, hudFont: 28, hudTextDx: 125, hudTextDy: 38,                // barra dell'inchiostro sotto i cuori
+      heartsOff: { x: 60, y: 8 }, heartsStep: 62, heartsScale: 0.85, next: 8, keepState: false,
+      hudIcon: true,
+      spawn: { x: 150 * S7, y: 488 * S7 },                                         // l'omino parte sempre a sinistra
+      terrain: [
+        Q([[22, 488], [400, 490]]),                                                // cornicione di sinistra (fino alla roccia della mongolfiera)
+        Q([[790, 490], [1370, 490]])                                               // cornicione di destra (ingranaggio, pietre, finestra blu)
+      ],
+      steps: [],
+      walls: [],
+      anchors: { L: { x: 400 * S7, y: 490 * S7 }, R: { x: 790 * S7, y: 490 * S7 } },
+      inkPerPx: 0.1,                                                                // il vuoto è largo: l'inchiostro costa la metà
+      enemies: [ { type: 'blob', x0: 470, x1: 720, y: 976, speed: 55 }, { type: 'blob', x0: 1930, x1: 2350, y: 979, speed: 65 } ],   // due mostri di terra, uno per cornicione
+      door: { gate: true, x0: R(1255), x1: R(1345), y0: R(128), y1: R(305), panel: { x0: R(1255), x1: R(1345), y0: R(125), y1: R(305) } },   // finestra blu gotica
+      sprites: {
+        icona: { key: 'l5_boccetta', file: 'boccetta.png' },                         // boccetta d'inchiostro del HUD
+        leva1: { key: 'l4_leva1', file: 'l4_leva1.png', x: 1745 - 0.394 * 80, y: 975 - 0.97 * 84, w: 80, h: 84 },   // la stessa leva del livello 4
+        globo: { key: 'l7_globo', file: 'l7_globo.png' },                            // mongolfiera + cesto (ritagliati dallo sfondo, che è senza)
+        corde: { key: 'l7_corde', file: 'l7_corde.png' },                            // i tiranti
+        ancD:  { key: 'l7_ancD',  file: 'l7_ancD.png' },                             // ancora agganciata al cornicione di destra
+        ancS:  { key: 'l7_ancS',  file: 'l7_ancS.png' }                              // ancora appesa sotto il cesto
+      },
+      levers: [                                                                      // leva sul cornicione di destra, vicino all'ingranaggio
+        { x: 1745, y: 979, r: 105, sprite: 'leva1', pivot: { x: 1745, y: 975 }, sc: 1.1, lean0: 27.6, rest: -25, pull: 25, action: 'balloon',
+          msg: 'Le ancore cadono e le corde si sciolgono: salta sul cesto!' }
+      ],
+      globo: {                                                                       // posizioni in px di gioco (dove sono ritagliati gli sprite)
+        globo: { x: 1045, y: 60 }, corde: { x: 687, y: 443 }, ancD: { x: 2049, y: 918 }, ancS: { x: 1153, y: 1262 },
+        rim: { x0: 1245 * 1, x1: 1435, y: 940 },                                     // bordo del cesto: ci si sale con un salto (si muove con la mongolfiera)
+        rise: 450, delay: 700, dur: 6500                                             // di quanto sale, dopo quanto parte, in quanto tempo (ms)
+      },
+      hint: 'A / D corri  ·  Spazio salta  ·  tieni premuto il mouse e traccia l’inchiostro da una sponda all’altra  ·  E vicino alla leva  ·  poi salta sul cesto  ·  R riavvia'
+    };
+  })(),
+  /* ---- STANZA 8: La salita ----
+     Si sale nel tunnel in mongolfiera: lo sfondo scorre in basso e si ripete (11 pezzi), frecce sinistra/destra per spostarsi,
+     i pesci luminosi tolgono un cuore se li tocchi. I pezzi del tunnel sono asc_a/b/c/d/e.jpg (si agganciano senza stacchi). */
+  8: {
+    id: 8, key: 'asc_a', file: 'asc_a.jpg', name: 'Stanza 8', hud: true, hudPatch: false, heartsPatch: false,
+    hudOff: { x: -32, y: -48 }, hudW: 262, hudFont: 28, hudTextDx: 125, hudTextDy: 38,
+    heartsOff: { x: 60, y: 8 }, heartsStep: 62, heartsScale: 0.85, next: null, keepState: false, hudIcon: true,
+    spawn: { x: 1376, y: 1000 }, terrain: [], steps: [], walls: [], enemies: [],
+    sprites: {
+      icona: { key: 'l5_boccetta', file: 'boccetta.png' },
+      globo: { key: 'l7_globo', file: 'l7_globo.png' },
+      tb: { key: 'asc_b', file: 'asc_b.jpg' }, tc: { key: 'asc_c', file: 'asc_c.jpg' }, td: { key: 'asc_d', file: 'asc_d.jpg' }, te: { key: 'asc_e', file: 'asc_e.jpg' },
+      ink: { key: 'ink_tex', file: 'ink_tex.png' },                                       // texture dell'inchiostro che scorre nel corridoio nero
+      pesce:  { key: 'l8_pesce_s', file: 'l8_pesce_sheet.png',   frameWidth: 240, frameHeight: 220 },     // azzurro: 6 fotogrammi, le pinne si muovono
+      pesceG: { key: 'l8_pesce_g', file: 'l8_pesce_sheet_g.png', frameWidth: 240, frameHeight: 220 },     // oro
+      pesceV: { key: 'l8_pesce_v', file: 'l8_pesce_sheet_v.png', frameWidth: 240, frameHeight: 220 },     // verde
+      pesceP: { key: 'l8_pesce_p', file: 'l8_pesce_sheet_p.png', frameWidth: 240, frameHeight: 220 },     // viola
+      pesceR: { key: 'l8_pesce_r', file: 'l8_pesce_sheet_r.png', frameWidth: 240, frameHeight: 220 }      // rosa/rosso
+    },
+    ascent: {
+      T: 968, tiles: ['a', 'b', 'c', 'd', 'b', 'e', 'a', 'c', 'd', 'e', 'b'],          // 11 pezzi di tunnel uno sopra l'altro
+      speed: 210, speedMin: 90, speedMax: 1000, boost: 650, balloonY: 1010, balloonScale: 0.28, steer: 760,        // px/s di salita, quota della mongolfiera, velocità laterale
+      fish: [                                                            // [quota (px), fase, periodo (s), tipo, grandezza, battiti d'ali/s]
+        [1700, 0.0, 3.6, 'patrol', 1.00, 8],   // patrol: da parete a parete
+        [2150, 2.0, 3.0, 'dart',   0.90, 11],  // dart: scatta da un lato all'altro e rallenta ai bordi
+        [2500, 4.1, 4.2, 'wave',   1.10, 7],   // wave: onda su e giù mentre traversa
+        [2900, 1.0, 3.4, 'loop',   1.00, 9],   // loop: nuota in cerchio
+        [3550, 5.0, 0,   'chase',  1.15, 7],   // chase: insegue lentamente la mongolfiera
+        [4200, 2.4, 2.8, 'dart',   1.00, 11],
+        [4500, 4.4, 4.0, 'loop',   1.10, 7],
+        [5700, 2.9, 4.4, 'wave',   1.15, 7],
+        [6000, 5.3, 3.2, 'loop',   0.95, 9],
+        [6300, 1.2, 3.6, 'patrol', 1.00, 9],
+        [6600, 4.0, 2.9, 'dart',   1.00, 11],
+        [6900, 0.8, 3.4, 'patrol', 1.00, 9],   // ---- tratto nuovo
+        [7800, 1.9, 0,   'chase',  1.00, 8],
+        [8100, 4.2, 3.6, 'loop',   1.00, 9],
+        [8400, 0.4, 3.2, 'dart',   0.90, 12],
+        [9000, 5.8, 3.4, 'patrol', 0.90, 10],
+        [9300, 1.3, 3.8, 'loop',   1.05, 8],
+        [9600, 3.9, 3.0, 'dart',   1.00, 11],
+        [10200, 2.2, 3.4, 'patrol', 1.00, 9]
+      ],
+      edges: {"a":{"l":[653,645,639,643,646,685,722,761,801,841,846,851,855,861,867,873,880,884,886,888,891,894,896,899,904,906,909,912,915,917,918,919,919,920,920,920,922,924,926,931,938,943,951,960,968,974,979,983,984,985,986,986,986,986,985,985,984,984,983,983,983,982,982,981,980,979,976,972,968,963,957,950,940,932,923,913,905,900,894,888,884,879,873,868,863,854,845,838,832,827,827,827,826,826,825,825,825,825,825,825,825,824,824,822,820,815,808,798,788,776,765,755,745,733,721,711,703,696,690,677,665],"r":[1772,1770,1769,1767,1766,1766,1767,1770,1791,1812,1831,1850,1867,1866,1866,1865,1862,1857,1851,1844,1837,1828,1820,1812,1806,1800,1798,1798,1798,1798,1798,1791,1783,1760,1737,1729,1730,1731,1747,1763,1766,1768,1772,1774,1777,1778,1780,1779,1778,1777,1775,1773,1771,1770,1769,1765,1761,1757,1753,1750,1750,1750,1750,1751,1752,1754,1755,1738,1721,1703,1685,1667,1668,1670,1675,1696,1719,1740,1761,1780,1783,1785,1788,1791,1794,1797,1800,1799,1797,1794,1792,1789,1790,1790,1791,1791,1791,1790,1789,1789,1789,1790,1791,1793,1793,1790,1786,1781,1776,1773,1772,1772,1772,1772,1772,1772,1772,1772,1772,1772,1772]},"b":{"l":[643,639,645,653,661,703,743,785,828,871,879,886,894,902,910,919,927,934,938,941,946,950,954,957,963,966,970,974,978,979,981,981,981,981,980,980,981,982,983,986,991,995,1001,1008,1014,1017,1021,1022,1022,1020,1018,1015,1012,1009,1006,1003,998,993,989,986,982,979,976,973,969,965,959,952,945,937,927,918,905,894,882,870,860,853,845,837,831,824,817,811,805,794,785,777,770,765,764,764,764,764,764,764,765,766,767,768,769,770,771,771,771,769,764,757,749,739,731,724,716,707,699,692,687,683,672,661,651],"r":[1771,1774,1776,1778,1779,1783,1787,1793,1817,1841,1864,1885,1905,1907,1908,1909,1908,1906,1901,1897,1892,1884,1877,1871,1865,1859,1858,1859,1860,1860,1860,1855,1847,1839,1816,1808,1804,1804,1803,1819,1820,1821,1822,1822,1822,1821,1819,1817,1813,1810,1806,1801,1797,1793,1789,1781,1774,1767,1759,1752,1749,1747,1745,1743,1741,1740,1738,1718,1697,1676,1655,1635,1633,1651,1670,1689,1708,1727,1728,1729,1730,1731,1732,1733,1735,1737,1738,1737,1735,1732,1729,1727,1728,1729,1729,1730,1731,1731,1731,1732,1734,1737,1740,1742,1743,1742,1740,1739,1737,1737,1739,1741,1744,1748,1751,1754,1756,1759,1762,1765,1769]},"c":{"l":[635,623,625,628,631,667,702,737,774,810,813,816,818,821,825,829,832,835,835,836,837,838,840,841,844,846,848,851,854,855,856,857,858,858,859,860,863,866,870,876,884,892,901,913,923,931,939,945,948,952,956,958,961,964,966,968,971,973,976,978,982,985,988,991,993,994,994,993,992,988,985,981,974,968,963,956,950,947,943,939,936,933,929,925,921,913,906,900,894,889,889,889,888,887,885,884,883,882,882,881,880,879,878,874,870,862,853,840,827,813,799,786,773,758,743,730,718,708,688,668,650],"r":[1771,1766,1761,1756,1751,1748,1747,1748,1765,1782,1799,1814,1828,1826,1824,1821,1816,1809,1800,1791,1783,1772,1762,1753,1745,1738,1736,1736,1736,1736,1736,1729,1721,1699,1677,1670,1670,1673,1689,1707,1711,1716,1720,1725,1730,1734,1737,1739,1741,1743,1744,1746,1747,1748,1748,1747,1746,1744,1744,1745,1748,1752,1756,1761,1765,1768,1771,1758,1744,1729,1715,1701,1704,1708,1732,1756,1781,1804,1827,1831,1836,1840,1844,1848,1853,1857,1860,1861,1859,1857,1854,1852,1852,1852,1852,1851,1850,1848,1847,1845,1844,1844,1844,1843,1842,1836,1829,1821,1814,1807,1804,1801,1799,1796,1793,1789,1786,1782,1779,1777,1775]},"d":{"l":[643,638,644,651,660,701,741,782,824,865,872,878,883,890,896,902,908,912,913,914,916,917,918,919,920,921,921,921,921,920,918,916,914,911,909,907,906,906,906,908,912,917,924,932,939,945,951,955,957,959,961,963,964,966,968,970,972,974,976,979,982,985,988,990,992,993,992,991,988,984,979,973,965,957,951,942,934,929,922,915,909,903,896,889,882,869,858,848,838,830,827,824,820,816,813,810,807,806,804,803,801,800,798,796,793,787,779,770,760,749,739,730,721,711,702,694,688,684,673,661,651],"r":[1771,1773,1775,1777,1778,1781,1784,1790,1812,1835,1856,1876,1895,1894,1894,1894,1891,1885,1878,1870,1861,1851,1840,1830,1821,1813,1808,1806,1803,1800,1797,1785,1774,1750,1726,1716,1714,1713,1726,1740,1741,1742,1744,1747,1748,1750,1751,1751,1751,1752,1752,1752,1752,1752,1751,1749,1748,1746,1745,1746,1748,1751,1754,1758,1762,1766,1769,1755,1740,1723,1708,1692,1695,1698,1704,1725,1748,1768,1789,1807,1809,1809,1810,1811,1812,1813,1812,1808,1803,1798,1792,1787,1784,1782,1780,1777,1774,1771,1768,1767,1765,1765,1765,1766,1765,1761,1757,1753,1748,1745,1746,1747,1749,1751,1754,1756,1758,1760,1763,1766,1769]},"e":{"l":[636,624,627,630,633,669,704,740,778,816,820,824,827,833,838,844,851,857,860,863,867,872,876,880,887,892,898,904,912,916,919,923,926,929,932,935,940,944,949,956,964,970,979,989,997,1003,1008,1011,1012,1012,1011,1009,1008,1005,1003,1000,996,992,988,985,982,979,977,974,970,966,961,955,948,941,933,924,913,904,894,884,876,872,866,861,858,854,850,848,844,839,834,829,825,823,825,827,830,833,835,838,840,843,846,847,848,849,850,849,848,844,837,827,816,804,792,780,768,754,740,728,717,707,687,668,651],"r":[1772,1767,1762,1757,1752,1750,1750,1752,1770,1788,1806,1823,1839,1838,1837,1837,1834,1829,1824,1819,1813,1806,1800,1795,1790,1785,1786,1788,1790,1793,1796,1792,1788,1769,1751,1746,1747,1750,1767,1785,1790,1794,1798,1802,1805,1807,1808,1807,1805,1804,1802,1798,1795,1791,1788,1780,1772,1765,1759,1752,1749,1747,1745,1743,1741,1740,1739,1720,1700,1681,1661,1641,1642,1643,1664,1684,1706,1728,1750,1753,1757,1761,1765,1770,1777,1783,1789,1792,1794,1792,1792,1792,1794,1797,1801,1804,1806,1807,1809,1811,1813,1816,1818,1820,1820,1818,1813,1808,1803,1799,1797,1796,1795,1793,1790,1788,1784,1781,1779,1777,1775]}}
+    },
+    afterVideo: 9,                                                    // finito il video si entra nella stanza 9 (boss finale)
+    endVideo: 'assets/castello.mp4',                                    // video che si vede alla fine della salita
+    hint: '←  →  muovi la mongolfiera  ·  ↑ slancio in avanti  ·  ↓ rallenta  ·  schiva i pesci luminosi: ogni tocco costa un cuore'
+  },
+  9: {
+    id: 9, key: 'bg9', file: 'livello9_sfondo.jpg', name: 'Stanza 9', hud: true, hudPatch: false, heartsPatch: false,
+    hudOff: { x: -32, y: -48 }, hudW: 262, hudFont: 28, hudTextDx: 125, hudTextDy: 38,
+    heartsOff: { x: 60, y: 8 }, heartsStep: 62, heartsScale: 0.85, next: null, keepState: false, hudIcon: true,
+    spawn: { x: 879, y: 1219 }, terrain: [], steps: [], walls: [], enemies: [], boss: true,
+    endVideo: 'assets/finale_completo.mp4',                            // video finale: parte quando il mostro è sconfitto (poi si torna al menu)
+    sprites: { icona: { key: 'l5_boccetta', file: 'boccetta.png' } },
+    hint: ''
+  }
 };
 
 function makePolySurface(pts, opts = {}) {
@@ -570,6 +726,7 @@ function pzClimb(Z, s, inp, dt) {
   if (!Z.climb) {
     if (!(inp.up || inp.down)) return false;
     for (const rp of Z.ropes) {
+      if (Z.groundOnly && !s.onGround) continue;                       // stanza 6: ci si aggrappa solo stando in piedi, mai mentre si cade
       if (Math.abs(s.x - pzRopeX(Z, rp)) > PZ_CLIMB.grab) continue;
       if (s.bottom < rp.y0 - 2 || s.bottom > rp.y1 + 2) continue;
       if (inp.up && !inp.down && s.bottom <= rp.y0 + 1) continue;     // già in cima
@@ -626,6 +783,35 @@ function pzDropHit(drops, s) {
   }
   return null;
 }
+/* ======================================================================
+   STANZA 6 – IL GRAMMOFONO E I 5 FIORI MUSICALI (logica pura)
+   Coordinate dei dati in px dell'immagine 1376x768 (S6 le converte in px di gioco).
+   ====================================================================== */
+const SN_NOTES = [{ name: 'Do', midi: 72 }, { name: 'Mi', midi: 76 }, { name: 'Sol', midi: 79 }, { name: 'La', midi: 81 }, { name: 'Si', midi: 83 }];
+
+function snInit(cfg) {
+  const Sn = cfg.sinfonia;
+  const Z = { groundOnly: true, t: 0, td: 0, climb: null, riding: null, climbT: 0, moving: false, rocks: [],
+    ropes: Sn.ropes.map(r => ({ fixed: true, x: r.x * S6, y0: r.y0 * S6, y1: r.y1 * S6, exit: -1 })) };
+  return { Z, hasCrank: false, placed: false, busy: false, step: 0, done: false };
+}
+// zona "vicino allo stelo": l'omino (piedi) deve starci dentro per suonare il fiore con E; in caso di zone sovrapposte vince il fiore atteso
+function snZone(Sn, s, expect) {
+  let first = -1;
+  Sn.flowers.forEach((f, i) => {
+    const z = f.use;
+    if (s.x >= z.x0 * S6 && s.x <= z.x1 * S6 && s.bottom >= z.y0 * S6 && s.bottom <= z.y1 * S6 && first < 0) first = i;
+    if (s.x >= z.x0 * S6 && s.x <= z.x1 * S6 && s.bottom >= z.y0 * S6 && s.bottom <= z.y1 * S6 && i === expect) first = i;
+  });
+  return first;
+}
+// i fiori vanno suonati nell'ordine delle note (Do-Mi-Sol-La-Si = indici 0..4)
+function snTouch(St, i) {
+  if (St.step === i) { St.step++; if (St.step >= SN_NOTES.length) { St.done = true; return 'done'; } return 'ok'; }
+  St.step = 0; return 'wrong';
+}
+function snNearGramo(Sn, s) { const g = Sn.gramo; return s.x >= g.x0 * S6 && s.x <= g.x1 * S6 && s.bottom >= g.y0 * S6 && s.bottom <= g.y1 * S6; }
+function snNearCrank(Sn, s) { return Math.abs(s.x - Sn.crank.x * S6) < 80 && Math.abs(s.bottom - Sn.crank.y * S6) < 50; }
 // === LOGIC END ===
 
 /* ======================================================================
@@ -703,12 +889,25 @@ const Save = {
 const Prefs = (() => {
   let p = { music: 1, sfx: 1, muted: false };
   try { const j = JSON.parse(localStorage.getItem('blueink.prefs') || 'null'); if (j) p = Object.assign(p, j); } catch (_) {}
-  return { get: () => p, set(k, v) { p[k] = v; try { localStorage.setItem('blueink.prefs', JSON.stringify(p)); } catch (_) {} } };
+  p.music = 1; p.sfx = 1; p.muted = false;                           // l'audio non si può spegnere né abbassare (nemmeno da menu)
+  return { get: () => p, set(k, v) { if (k === 'muted' || k === 'music' || k === 'sfx') return; p[k] = v; try { localStorage.setItem('blueink.prefs', JSON.stringify(p)); } catch (_) {} } };
 })();
 
 /* ======================================================================
    SCENA GENERICA DI LIVELLO (stanza 1, stanza 2, ...)
    ====================================================================== */
+/* ---------- Stanza 9: boss finale (parole dei fumetti, colori e occhi del Mostro dei Vuoti) ---------- */
+const BWORDS = [
+  ['luce', 'ombra', 'porta', 'torcia', 'libro', 'penna', 'carta', 'fiamma', 'notte', 'sogno', 'vento', 'pietra', 'chiave', 'corvo', 'stella', 'sciarpa', 'goccia', 'spada', 'muro', 'fumo', 'cuore', 'occhio', 'lampo', 'eco'],
+  ['inchiostro', 'castello', 'tenebre', 'pagina', 'corridoio', 'scintilla', 'mistero', 'silenzio', 'tempesta', 'racconto', 'fantasma', 'candela', 'cavaliere', 'serratura', 'labirinto', 'incantesimo', 'pergamena', 'calamaio', 'tesoro', 'sussurro', 'ragnatela', 'prigione', 'cristallo', 'tramonto'],
+  ['goccia nera', 'occhi aperti', 'notte fonda', 'corvo muto', 'mostro vuoto', 'luce fioca', 'passo lento', 'vento freddo', 'porta chiusa', 'cuore forte', 'penna blu', 'ombra lunga', 'torcia accesa', 'libro antico', 'sala buia', 'mano ferma', 'trono vuoto', 'vecchia chiave', 'sogno strano', 'fumo nero'],
+  ['il blu vince', 'spezza il buio', 'ultima pagina', 'scrivi forte', 'luce nel vuoto', 'non ho paura', 'la storia continua', 'inchiostro vivo', 'accendi la luce', 'il mostro cade', 'scacciare le ombre', 'una nuova pagina', 'il coraggio vince', 'cade la notte', 'fine del buio', 'l ultima goccia', 'il libro si apre', 'resisti ancora', 'colpisci il vuoto', 'torna la luce']
+];
+const BCOLS = [[12, 12, 18], [14, 24, 70], [18, 48, 140], [24, 92, 210], [50, 140, 255]];            // le 5 fasi: dal nero al Profondo Blu
+const BOSSBOX = { ox: -315, oy: -214, w: 598, h: 468 };                                  // ritaglio del mostro (px dell'immagine 1377) rispetto al centro (890,250)
+const BOSSEYES = [{x:135.2,y:-61.1,r:4.6,tx:8.0,ty:2.2},{x:-8.1,y:5.5,r:8.1,tx:10.2,ty:7.8},{x:145.6,y:1.4,r:7.6,tx:6.2,ty:2.6},{x:-70.8,y:12.0,r:5.4,tx:6.3,ty:5.2},{x:79.2,y:49.3,r:6.1,tx:5.7,ty:2.2},{x:-6.9,y:78.8,r:5.0,tx:10.8,ty:2.2}];   // pupille mobili
+const BEYES = [[-30, -20, 1], [10, -35, 1.2], [40, -10, 1], [-5, 0, 1.4], [-45, 15, .8], [25, 22, 1], [-15, 35, .9], [55, -40, .7], [-60, -30, .7]];
+
 class LevelScene extends Phaser.Scene {
   constructor() { super('Level'); }
 
@@ -723,8 +922,10 @@ class LevelScene extends Phaser.Scene {
     this.load.image(this.cfg.key, this.cfg.file);
     this.load.image('player', 'player_spritesheet.png');
     if (this.cfg.funnel) this.load.image('crate3', this.cfg.funnel.crate.file);
-    if (this.cfg.sprites) Object.values(this.cfg.sprites).forEach(sp => this.load.image(sp.key, sp.file));
+    if (this.cfg.sprites) Object.values(this.cfg.sprites).forEach(sp => (sp.frameWidth ? this.load.spritesheet(sp.key, sp.file, { frameWidth: sp.frameWidth, frameHeight: sp.frameHeight }) : this.load.image(sp.key, sp.file)));
     this.load.image('runbody', 'player_corsa_corpo.png');
+    if (this.cfg.boss) this.load.image('torcia', 'torcia.png');
+    if (this.cfg.boss) for (let i = 0; i < 5; i++) { this.load.image('bossb' + i, 'boss_body' + i + '.png'); this.load.image('bosst' + i, 'boss_tent' + i + '.png'); }   // mostro: 5 fasi dal nero al blu
     this.load.image('enemy_blob', 'enemy_blob.png');
     this.load.image('enemy_crow', 'enemy_crow.png');
     const ss = this.cfg.seesaw;
@@ -738,7 +939,7 @@ class LevelScene extends Phaser.Scene {
     Save.set({ level: cfg.id, lives: this.startLives });   // checkpoint: inizio stanza
     // la scena viene riusata passando da una stanza all'altra: azzero tutto lo stato della stanza precedente
     this.entered = false; this.safeHist = []; this.safeT = 0; this.levs = null; this.crate = null; this.fl = null; this.gateOpen = false; this.doorOpened = false; this.pushT = 0; this.ss = null; this.fn = null; this.lever = null; this.ramp = null; this.pitG = null; this.hudG = null;
-    this.doorGlow = null; this.pz = null; this.marks = null; this.bridge = null; this.stroke = null; this.pouring = false; this.finishAt = 0;
+    this.doorGlow = null; this.pz = null; this.sn = null; this.marks = null; this.bridge = null; this.stroke = null; this.pouring = false; this.finishAt = 0;
     this.ink = C.inkMax; this.inkShown = C.inkMax;
     this.stroke = null; this.bridge = null;
     this.finished = false; this.dead = false; this.restarting = false; this.autoWalk = false; this.popupShown = false;
@@ -747,6 +948,8 @@ class LevelScene extends Phaser.Scene {
     this.surfaces = baseSurfaces(cfg);
     this.walls = (cfg.walls || []).slice();                      // copia: la stanza 4 aggiunge il muro della cassa
     this.ps = newState(cfg.spawn);
+    if (cfg.ascent) { this.createAscent(); return; }
+    if (cfg.boss) { this.createBoss(); return; }
 
     this.add.image(0, 0, cfg.key).setOrigin(0, 0).setDepth(0);
     this.buildPetals();
@@ -755,17 +958,20 @@ class LevelScene extends Phaser.Scene {
     this.buildPlayer();
     this.buildEnemies();
     this.buildHearts();
+    if (cfg.hudIcon) this.buildHudIcon();
     if (cfg.pit) this.buildPit();
     this.buildInkLayer();
     this.buildInput();
     if (cfg.anchors) this.buildAnchors();
     if (cfg.lever) this.buildLever();
     if (cfg.levers) this.buildLevers();
+    if (cfg.globo) this.buildGlobo();
     if (cfg.seesaw) this.buildSeesaw();
     if (cfg.funnel) this.buildFunnel();
     if (cfg.crate) this.buildCrate();
     if (cfg.flasks) this.buildFlasks();
     if (cfg.pozzo) this.buildPozzo();
+    if (cfg.sinfonia) this.buildSinfonia();
     this.buildHint();
 
     this.dbg = this.add.graphics().setDepth(200).setVisible(false);
@@ -882,6 +1088,7 @@ class LevelScene extends Phaser.Scene {
   }
 
   pullLever() {
+    if (this.sn) { this.interactSn(); return; }
     if (this.pz) { this.pullLeverPz(); return; }
     if (this.cfg.levers) { this.pullLevers(); return; }
     const L = this.cfg.lever, s = this.ps;
@@ -914,12 +1121,499 @@ class LevelScene extends Phaser.Scene {
     }));
   }
 
+  /* ---------- Stanza 7: la mongolfiera trattenuta da corde e ancore ---------- */
+  buildGlobo() {
+    const G = this.cfg.globo, sp = this.cfg.sprites, gl = this.gl = { dy: 0, released: false, done: false };
+    const dim = (k) => this.textures.get(k).getSourceImage();
+    gl.ropes = this.add.image(G.corde.x, G.corde.y, sp.corde.key).setOrigin(0, 0).setDepth(3.1);
+    const mk = (cfg, k) => { const t = dim(k); return this.add.image(cfg.x + t.width / 2, cfg.y + t.height / 2, k).setDepth(3.2); };
+    gl.ancD = mk(G.ancD, sp.ancD.key); gl.ancS = mk(G.ancS, sp.ancS.key);
+    gl.img = this.add.image(G.globo.x, G.globo.y, sp.globo.key).setOrigin(0, 0).setDepth(3.3);
+    // il bordo del cesto è calpestabile (ci si atterra da sopra) e segue la mongolfiera quando sale
+    this.surfaces.push({ solid: false, yAt: (x) => (x >= G.rim.x0 && x <= G.rim.x1 ? G.rim.y + gl.dy : null) });
+  }
+
+  releaseGlobo() {
+    const G = this.cfg.globo, gl = this.gl;
+    if (!gl || gl.released) return;
+    gl.released = true;
+    // il ponte d'inchiostro si scioglie (la mongolfiera ci passerebbe attraverso)
+    if (this.bridge) {
+      const i = this.surfaces.indexOf(this.bridge.surface); if (i >= 0) this.surfaces.splice(i, 1);
+      this.tweens.add({ targets: this.bridgeG, alpha: 0, duration: 700 });
+    }
+    // i tiranti si sciolgono
+    this.tweens.add({ targets: gl.ropes, alpha: 0, y: gl.ropes.y + 90, duration: 900, ease: 'Quad.in' });
+    // le due ancore cadono nel vuoto
+    this.tweens.add({ targets: gl.ancD, y: gl.ancD.y + 1300, angle: 55, duration: 1300, ease: 'Quad.in', onComplete: () => gl.ancD.destroy() });
+    this.tweens.add({ targets: gl.ancS, y: gl.ancS.y + 700, angle: -35, duration: 1000, delay: 150, ease: 'Quad.in', onComplete: () => gl.ancS.destroy() });
+    this.time.delayedCall(900, () => Snd.splash());
+    // la mongolfiera si libera e sale piano, poi sempre più veloce
+    this.time.delayedCall(G.delay, () => {
+      Snd.pickup();
+      this.tweens.add({
+        targets: gl, dy: -G.rise, duration: G.dur, ease: 'Cubic.inOut',
+        onUpdate: () => { gl.img.y = G.globo.y + gl.dy; },
+        onComplete: () => {
+          gl.done = true;
+          const s = this.ps;
+          const on = s.onGround && s.x >= G.rim.x0 && s.x <= G.rim.x1 && Math.abs(s.bottom - (G.rim.y + gl.dy)) < 8;
+          if (!on && !this.finished && !this.dead) this.toast('Troppo tardi! Premi R per riprovare', W / 2, 330);
+          else if (on && !this.finished && !this.dead) { this.finished = true; this.time.delayedCall(500, () => this.restart(this.cfg.next, this.lives)); }   // si sale: stanza 8
+        }
+      });
+    });
+  }
+
+  /* ---------- Stanza 9: il boss finale, Mostro dei Vuoti (typing shooter) ---------- */
+  createBoss() {
+    const K = 2752 / 1377;                                            // coordinate in px dell'immagine 1377x768 -> px di gioco
+    this.bs = { K, FL: 610 * K, HX: 440 * K, t: 0, ph: 'intro', wave: 0, hp: 100, tint: 0, mins: [], shots: [], parts: [], target: null, spawned: 0, count: 0, next: 0, hits: 0, rt: 0, winT: 0, throwT: 0,
+      hx: 700 * K * 0 + 700, hxT: 440 * K, face: 1, run: 0, dt: 0, rings: [], bolts: [], pud: [], vort: [],
+      bx: 890 * K, by: 250 * K, tx: 890 * K, ty: 250 * K, ext: 0, look: 0, fade: 1, flash: 0 };
+    const B = this.bs;
+    this.add.image(0, 0, 'bg9').setOrigin(0, 0).setDisplaySize(W, H).setDepth(0);
+    this.bossC = this.add.container(B.bx, B.by).setDepth(5);
+    const mk = (k) => this.add.image(0, 0, k).setOrigin(-BOSSBOX.ox / BOSSBOX.w, -BOSSBOX.oy / BOSSBOX.h);
+    this.bT = [mk('bosst0'), mk('bosst0')]; this.bB = [mk('bossb0'), mk('bossb0')]; this.bPg = this.add.graphics();
+    this.bossC.add([...this.bT, ...this.bB, this.bPg]);
+    this.heroG = this.add.graphics().setDepth(10.5); this.fxG = this.add.graphics().setDepth(12);
+    this.buildEnemies();                                              // registra i fotogrammi di goccia e corvo
+    const tex = this.textures.get('player');
+    if (!tex.has('idle0')) for (const [set, list] of Object.entries(SHEET)) list.forEach(([x, y, w, h, ax, ay], i) => { const f = tex.add(set + i, 0, x, y, w, h); f.customPivot = true; f.pivotX = (ax - x) / w; f.pivotY = (ay - y) / h; });
+    const rb = this.textures.get('runbody');
+    if (!rb.has('runb0')) RUNBODY.forEach((d, i) => { const f = rb.add('runb' + i, 0, d[0], d[1], d[2], d[3]); f.customPivot = true; f.pivotX = d[4]; f.pivotY = 1; });
+    this.legG = this.add.graphics().setDepth(9.5);
+    this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.2).setDepth(1);               // sala un po' più buia: la torcia fa luce
+    this.player = this.add.sprite(B.hx, B.FL, 'player', 'idle0').setScale(0.54).setDepth(10);
+    this.setPlayerFrame('idle0');
+    if (!this.textures.exists('glow9')) {                                              // bagliore morbido (gradiente radiale)
+      const ct = this.textures.createCanvas('glow9', 256, 256), c = ct.getContext(), gr = c.createRadialGradient(128, 128, 0, 128, 128, 128);
+      gr.addColorStop(0, 'rgba(255,210,120,1)'); gr.addColorStop(0.3, 'rgba(255,160,60,0.5)'); gr.addColorStop(1, 'rgba(255,120,30,0)');
+      c.fillStyle = gr; c.fillRect(0, 0, 256, 256); ct.refresh();
+    }
+    this.torch = this.add.image(0, 0, 'torcia').setOrigin(0.5, 0.94).setDepth(10.6);
+    this.gl = [0, 1, 2].map(() => this.add.image(0, 0, 'glow9').setBlendMode(Phaser.BlendModes.ADD).setDepth(11));
+    this.bEyeG = BOSSEYES.map((e, i) => { const o = this.add.image(0, 0, 'glow9').setBlendMode(Phaser.BlendModes.ADD); this.bossC.addAt(o, 4 + i); return o; });   // occhi luminescenti
+    this.add.graphics().setDepth(18).fillStyle(0xf3e3c3, 0.72).fillRoundedRect(36, 40, 520, 140, 18);
+    this.buildHudPatch(); this.buildHearts(); this.buildHudIcon();
+    this.ink = this.inkShown = C.inkMax; this.drawHud();
+    this.bbar = this.add.graphics().setDepth(26);
+    this.add.text(W / 2, 12, 'MOSTRO DEI VUOTI', { fontFamily: 'Georgia, serif', fontStyle: 'italic bold', fontSize: '30px', color: '#f3e3c3', stroke: '#1a1411', strokeThickness: 6 }).setOrigin(0.5, 0).setDepth(27);
+    this.bmsg = this.add.text(W / 2, 330, '', { fontFamily: 'Georgia, serif', fontStyle: 'italic bold', fontSize: '86px', color: '#15217a', stroke: '#f6e6cc', strokeThickness: 10, align: 'center' }).setOrigin(0.5).setDepth(60).setAlpha(0);
+    const kb = this.input.keyboard; kb.addCapture('SPACE');
+    kb.on('keydown', (e) => this.bossKey(e));
+    this.input.on('pointerdown', (ptr) => { if (ptr.leftButtonDown()) this.bossThrow(); });
+    this.cameras.main.fadeIn(350);
+    B.hx = 330 * K; B.hxT = B.HX;                                         // l'omino entra correndo dalla porta
+    this.bossHelp();
+    this.time.delayedCall(6300, () => this.bossWave());
+  }
+
+  bossHelp() {                                                         // istruzioni a inizio livello
+    const c = this.add.container(W / 2, 430).setDepth(70).setAlpha(0), bg = this.add.graphics();
+    bg.fillStyle(0xf6e9cf, 0.96); bg.fillRoundedRect(-960, -230, 1920, 470, 30); bg.lineStyle(6, 0x2a1d14, 1); bg.strokeRoundedRect(-960, -230, 1920, 470, 30);
+    const tx = (y, str, sz, col, bold) => this.add.text(0, y, str, { fontFamily: 'Georgia, serif', fontStyle: bold ? 'italic bold' : 'normal', fontSize: sz + 'px', color: col, align: 'center', wordWrap: { width: 1800 } }).setOrigin(0.5);
+    c.add([bg, tx(-165, 'IL MOSTRO DEI VUOTI', 72, '#15217a', true),
+      tx(-50, '1.  SCRIVI con la tastiera le parole dei fumetti\nper distruggere i mostri prima che ti raggiungano', 52, '#2a1d14'),
+      tx(110, '2.  Quando il boss crolla a terra:\nCLIC SINISTRO del mouse per sparargli l’inchiostro blu', 52, '#2a1d14')]);
+    this.tweens.add({ targets: c, alpha: 1, duration: 350 });
+    this.tweens.add({ targets: c, alpha: 0, delay: 5600, duration: 600, onComplete: () => c.destroy() });
+  }
+
+  bossMsg(s, ms) {
+    this.tweens.killTweensOf(this.bmsg);
+    this.bmsg.setText(s).setAlpha(1);
+    this.tweens.add({ targets: this.bmsg, alpha: 0, delay: ms - 700, duration: 700 });
+  }
+
+  bossWave() {
+    const B = this.bs; B.ph = 'def'; B.spawned = 0; B.next = 1; B.count = 6 + 2 * Math.min(B.wave, 3);
+    this.bossMsg(B.wave < 4 ? 'ONDATA ' + (B.wave + 1) + ' / 4' : 'ONDATA FINALE', 2000);
+  }
+
+  bossSpawn() {
+    const B = this.bs, K = B.K, w = Math.min(B.wave, 3), air = Math.random() < 0.5, P = BWORDS[w];
+    const near = (x) => B.mins.some(o => !o.dying && o.air === air && Math.abs(o.x - x) < (air ? 220 : 340));   // distanza minima: i fumetti non si sovrappongono
+    let sx = null;
+    for (let tr = 0; tr < 8 && sx === null; tr++) {
+      const inside = !air && Math.random() < 0.45 + 0.1 * w;                          // i mostri di terra a volte nascono dentro la stanza, più vicini all'omino
+      const x = (air ? 920 : inside ? Phaser.Math.FloatBetween(650, 960) : 1040) * K; if (!near(x)) sx = x;
+    }
+    if (sx === null) return false;                                                    // nessun posto libero: riprova tra poco
+    const m = { air, id: (B.idc = (B.idc || 0) + 1), off: undefined, x: sx, by: Phaser.Math.FloatBetween(300, 400) * K, y: 0, t: Math.random() * 6, x0: 0, p: 0, sp: (air ? 125 : 95) + 18 * w, w: this.bossWord(w), n: 0, err: 0, dying: false, dt: 0 };
+    m.x0 = m.x; m.y = air ? m.by : B.FL;
+    m.sc = air ? 0.42 : 0.4;
+    m.spr = air ? this.add.sprite(m.x, m.y, 'enemy_crow', 'crow0_0').setScale(0.42).setDepth(8) : this.add.sprite(m.x, m.y, 'enemy_blob', 'blob1_0').setScale(0.4).setDepth(8);
+    this.bsFrame(m.spr, air ? 'crow0_0' : 'blob1_0'); m.spr.setFlipX(true);
+    const st = { fontFamily: 'Georgia, serif', fontStyle: 'italic', fontSize: '46px', color: '#111' };
+    m.t2 = this.add.text(0, 0, m.w, st).setOrigin(0, 0.5).setDepth(16); m.tw = m.t2.width;
+    m.t1 = this.add.text(0, 0, '', { ...st, color: '#1b2fe0' }).setOrigin(0, 0.5).setDepth(16);
+    m.bg = this.add.graphics().setDepth(15);
+    m.em = air ? 0 : 1.5; if (!air) { B.vort.push({ x: m.x, l: 1.8 }); m.spr.setScale(0.02).setAlpha(0); }
+    B.mins.push(m); B.spawned++; return true;
+  }
+
+  bossWord(w) {                                                        // parole a mazzo mescolato: non si ripetono finché non sono finite tutte
+    const B = this.bs, bag = B.bag || (B.bag = [[], [], [], []]);
+    if (!bag[w].length) bag[w] = Phaser.Utils.Array.Shuffle(BWORDS[w].slice());
+    const used = B.mins.filter(m => !m.dying).map(m => m.w[0]);
+    let i = bag[w].findIndex(x => !used.includes(x[0]));                // evita due parole con la stessa iniziale insieme
+    if (i < 0) i = 0;
+    return bag[w].splice(i, 1)[0];
+  }
+
+  bsFrame(sp, n) { if (sp.frame.name !== n) { sp.setFrame(n); sp.setOrigin(sp.frame.pivotX, sp.frame.pivotY); } }
+
+  bossFx(x, y, n, c) { for (let i = 0; i < n; i++) this.bs.parts.push({ x, y, vx: Phaser.Math.FloatBetween(-440, 440), vy: Phaser.Math.FloatBetween(-640, 80), l: Phaser.Math.FloatBetween(0.5, 1), c }); }
+
+  bossKey(e) {
+    const B = this.bs; if (!B || this.dead || this.restarting) return;
+    const k = e.key;
+    if (B.ph === 'vuln' && (k === ' ' || k === 'Enter')) { this.bossThrow(); return; }
+    if (B.ph !== 'def' || k.length !== 1 || e.ctrlKey || e.metaKey || e.altKey) return;
+    const c = k.toLowerCase(); let m = B.target;
+    if (!m) { m = B.mins.filter(x => !x.dying && x.w[0] === c && !(x.em > 0.6)).sort((a, b) => a.x - b.x)[0]; if (!m) return; B.target = m; }
+    if (m.w[m.n] === c) { m.n++; if (m.n >= m.w.length) this.bossKill(m); } else m.err = 0.25;
+  }
+
+  inkBurst(x, y, big) {                                                // esplosione d'inchiostro nero
+    const B = this.bs, n = big ? 48 : 34;
+    for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, v = Phaser.Math.FloatBetween(120, 860); B.parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 220, l: Phaser.Math.FloatBetween(0.5, 1.2), c: Math.random() < 0.75 ? 0x08080c : 0x1c1c3a, r: Phaser.Math.FloatBetween(4, 18) }); }
+    B.rings.push({ x, y, l: 0.35 });
+  }
+
+  bossKill(m) {
+    const B = this.bs; m.dying = true; m.dt = 0; if (B.target === m) B.target = null;
+    [m.t1, m.t2, m.bg].forEach(o => o.destroy());
+    this.ink = Math.min(C.inkMax, this.ink + (m.w.length >= 9 ? 9 : 6));
+    const B2 = this.bs;
+    this.inkBurst(m.x, m.air ? m.y : B.FL - 40, true); Snd.splash();
+  }
+
+  bossThrow() {
+    const B = this.bs;
+    if (!B || B.ph !== 'vuln' || this.ink < 12 || B.shots.length + B.hits >= 5) return;
+    this.ink -= 12; B.throwT = 0.3; Snd.ink();
+    B.shots.push({ x: B.hx + B.face * 70, y: B.FL - 130 });
+  }
+
+  updateBoss(delta) {
+    const B = this.bs; if (!B) return;
+    const dt = Math.min(delta / 1000, 0.05), K = B.K, live = !this.dead && !this.restarting;
+    B.t += dt; B.dt = dt; this.invT = Math.max(0, this.invT - dt);
+    if (Math.abs(B.hxT - B.hx) > 1) { const dd = B.hxT - B.hx; B.face = Math.sign(dd); B.hx += Math.sign(dd) * Math.min(Math.abs(dd), 560 * dt); } else B.face = 1;
+    B.rings.forEach(r => r.l -= dt); B.rings = B.rings.filter(r => r.l > 0); B.bolts.forEach(r => r.l -= dt); B.bolts = B.bolts.filter(r => r.l > 0); B.pud.forEach(r => r.l -= dt); B.pud = B.pud.filter(r => r.l > 0); B.vort.forEach(r => r.l -= dt); B.vort = B.vort.filter(r => r.l > 0);
+    B.ext = (Math.sin(B.t * 1.1) + 1) / 2; B.look = Math.sin(B.t * 0.9);
+    const e = Math.min(1, dt * 3.5); B.bx += (B.tx - B.bx) * e; B.by += (B.ty - B.by) * e;
+    B.flash = Math.max(0, B.flash - dt); B.throwT = Math.max(0, B.throwT - dt);
+    B.tint += ((100 - B.hp) / 100 * 4 - B.tint) * Math.min(1, dt * 3);
+    this.inkShown += (this.ink - this.inkShown) * Math.min(1, dt * 8); this.drawHud();
+    B.parts.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 1400 * dt; p.l -= dt; }); B.parts = B.parts.filter(p => p.l > 0);
+    for (const m of B.mins.slice()) if (m.dying) {                       // morte: goccia/corvo si spiaccica e svanisce
+      m.dt += dt; m.spr.setScale(m.sc * (1 + m.dt * 2)).setAlpha(Math.max(0, 1 - m.dt * 7));          // il mostro scoppia in inchiostro
+      if (m.dt > 0.16) { m.spr.destroy(); B.mins.splice(B.mins.indexOf(m), 1); }
+    }
+    if (live && B.ph === 'def') {
+      B.next -= dt;
+      if (B.next <= 0 && B.spawned < B.count) { B.next = this.bossSpawn() ? Math.max(0.8, 2.3 - 0.25 * Math.min(B.wave, 3)) + Math.random() * 0.6 : 0.3; }
+      for (const m of B.mins.slice()) {
+        if (m.dying) continue;
+        if (m.em > 0) {                                                  // il mostro di terra emerge da un vortice d'ombra
+          m.em = Math.max(0, m.em - dt); const u = Phaser.Math.Clamp((0.6 - m.em) / 0.6, 0, 1); m.t += dt; m.y = B.FL;   // prima il fumo (0.9 s), poi il mostro emerge
+          m.spr.setScale(m.sc * Math.max(0.05, u)).setAlpha(Math.min(1, u * 1.6)); if (m.em === 0) m.spr.setScale(m.sc).setAlpha(1); continue;
+        }
+        m.t += dt; m.x -= m.sp * dt; m.err = Math.max(0, m.err - dt);
+        if (m.air) {                                                       // il corvo plana e poi scende in picchiata sull'omino
+          m.p = Phaser.Math.Clamp((m.x0 - m.x) / (m.x0 - (B.hx + 55 * K)), 0, 1); const e = Math.pow(m.p, 1.4);
+          m.y = m.by * (1 - e) + (B.FL - 115) * e + Math.sin(m.t * 3) * 30 * K * (1 - e);
+        } else m.y = B.FL;
+        if (m.x <= B.hx + 55 * K) {                                      // il mostro raggiunge l'omino: un cuore in meno
+          [m.t1, m.t2, m.bg, m.spr].forEach(o => o.destroy()); B.mins.splice(B.mins.indexOf(m), 1); if (B.target === m) B.target = null;
+          this.lives--; this.drawHearts(); Snd.hurt(); this.invT = 1; this.cameras.main.shake(200, 0.006); this.inkBurst(B.hx, B.FL - 120, false);
+          if (this.lives <= 0) { this.dead = true; this.gameOver(); break; }
+        }
+      }
+      if (live && !this.dead && B.spawned >= B.count && !B.mins.some(m => !m.dying)) {   // ondata finita: il boss crolla
+        B.ph = 'vuln'; B.tx = 880 * K; B.ty = 425 * K; this.ink = Math.max(this.ink, 66); B.hits = 0; B.hxT = B.HX + 220 * K; this.cameras.main.shake(500, 0.008);
+        this.bossMsg('COLPISCILO!\nCLIC SINISTRO del mouse per sparare l’inchiostro', 3200);
+      }
+    } else if (live && B.ph === 'vuln') {
+      this.ink = Math.min(C.inkMax, this.ink + 6 * dt);
+      for (const s of B.shots.slice()) {
+        const dx = B.bx - s.x, dy = B.by - s.y, d = Math.hypot(dx, dy);
+        if (d < 230) {
+          B.shots.splice(B.shots.indexOf(s), 1); B.hp = Math.max(0, B.hp - 5); B.hits++; B.flash = 0.3; this.cameras.main.shake(200, 0.006); this.bossFx(s.x, s.y, 22, INK.edge); Snd.splash();
+          if (B.hp <= 0) { B.ph = 'win'; B.winT = 0; } else if (B.hits >= 5) { B.ph = 'rise'; B.rt = 1.8; B.hxT = B.HX; B.tx = 890 * K; B.ty = 250 * K; B.wave++; }
+        } else { s.x += dx / d * 2200 * dt; s.y += dy / d * 2200 * dt; }
+      }
+    } else if (live && B.ph === 'rise') { B.rt -= dt; if (B.rt <= 0) this.bossWave(); }
+    else if (live && B.ph === 'win') { B.winT += dt; if (B.winT > 1.1) this.bossEnd(); }     // il mostro diventa tutto blu e subito parte il video
+    this.drawBoss(); this.drawBossFx();
+  }
+
+  bossEnd() {                                                          // mostro sconfitto: parte subito il video finale
+    const B = this.bs; B.ph = 'done'; this.finished = true;
+    this.playEndVideo(this.cfg.endVideo);
+  }
+
+  drawBoss() {                                                          // il mostro dei tuoi disegni: corpo + tentacoli lunghi (si allungano), 5 fasi di colore, pupille che si muovono
+    const B = this.bs, t = B.t, K = B.K, sq = Phaser.Math.Clamp((B.by - 250 * K) / (175 * K), 0, 1);
+    this.bossC.setPosition(B.bx, B.by).setScale(K * (1 + 0.1 * sq), K * (1 - 0.14 * sq)).setAlpha(B.fade).setRotation(Math.sin(t * 0.8) * 0.01);
+    const i0 = Math.min(3, Math.floor(B.tint)), f = Math.min(1, B.tint - i0), ext = Math.max(B.ext * 0.9, sq);
+    this.bB[0].setTexture('bossb' + i0); this.bB[1].setTexture('bossb' + (i0 + 1)).setAlpha(f);
+    this.bT[0].setTexture('bosst' + i0).setAlpha(ext); this.bT[1].setTexture('bosst' + (i0 + 1)).setAlpha(ext * f);
+    this.bT.forEach(o => o.setScale(0.7 + 0.3 * ext, 0.88 + 0.12 * ext).setRotation(Math.sin(t * 1.3) * 0.02));
+    [...this.bB, ...this.bT].forEach(o => (B.flash > 0.2 ? o.setTintFill(0xbfdcff) : o.clearTint()));
+    const hs = (h) => { const q = (n) => { const x = (n + h * 6) % 6; return Math.round(255 * (1 - 0.75 * Math.max(0, Math.min(x, 4 - x, 1)))); }; return Phaser.Display.Color.GetColor(q(5), q(3), q(1)); };
+    this.bEyeG.forEach((o, i) => { const e = BOSSEYES[i]; o.setPosition(e.x, e.y).setScale(95 / 256 * (1 + 0.12 * Math.sin(t * 3 + i))).setTint(hs((t * 0.07 + i * 0.16) % 1)).setAlpha(0.45 + 0.2 * Math.sin(t * 2.4 + i * 1.7)); });
+    const g = this.bPg; g.clear();
+    BOSSEYES.forEach((e, i) => {
+      const lx = B.look * 0.75 + Math.sin(t * 1.7 + i * 1.9) * 0.25, ly = Math.sin(t * 0.6 + i * 1.3) * 0.5, x = e.x + lx * e.tx, y = e.y + ly * e.ty;
+      g.fillStyle(B.tint > 2.5 ? 0x0a1a55 : 0x050505, 1); g.fillCircle(x, y, e.r); g.fillStyle(0xffffff, 0.85); g.fillCircle(x - e.r * 0.3, y - e.r * 0.35, Math.max(1, e.r * 0.25));
+    });
+  }
+
+  drawBossFx() {
+    const B = this.bs, K = B.K, g = this.fxG, t = B.t; g.clear();
+    // ---- omino: corre quando si sposta (corpo + gambe del gioco), altrimenti respira; torcia con fiamma che vibra e luce ----
+    const sc = 0.54, k = sc / C.scale, f = B.face, moving = Math.abs(B.hxT - B.hx) > 2, TAU = Math.PI * 2;
+    let hipY = B.FL;
+    if (moving) {
+      B.run = (B.run + B.dt * TAU * 3.8) % TAU; hipY = B.FL - 33.6 * k - Math.abs(Math.sin(B.run)) * 4 * k;
+      this.setPlayerFrame('runb' + (Math.floor(B.run / TAU * 6) % 6)); this.drawLegs(B.hx, B.FL, hipY, B.run, f, k);
+    } else { this.legG.clear(); this.setPlayerFrame('idle' + (Math.floor(t * 6) % 5)); }
+    this.player.setPosition(B.hx, hipY).setFlipX(f < 0).setRotation(moving ? 0.06 * f : 0)
+      .setScale(sc * (1 + B.throwT * 0.12), sc * (moving ? 1 : 1 + Math.sin(t * 7.8) * 0.012));
+    const blink = this.invT > 0 && Math.floor(t * 12) % 2 === 1;
+    this.player.setAlpha(blink ? 0.35 : 1); this.legG.setAlpha(blink ? 0.35 : 1);
+    const hx = B.hx + f * (moving ? 62 : 66), hy = moving ? hipY - 50 : B.FL - 105, fk = 1 + Math.sin(t * 23) * 0.035 + Math.sin(t * 37) * 0.02;
+    this.torch.setPosition(hx, hy).setScale(0.56 * fk, 0.56 * (1 + Math.sin(t * 31 + 1) * 0.05)).setRotation(Math.sin(t * 9) * 0.05 + (moving ? -0.12 * f : 0));
+    const fx = hx - Math.sin(this.torch.rotation) * 0, fy = hy - 105, fl = 0.85 + Math.sin(t * 23) * 0.08 + Math.sin(t * 41) * 0.06 + Math.random() * 0.04;
+    this.gl[0].setPosition(fx, fy).setScale(1100 / 256 * fl).setAlpha(0.34);          // luce ampia sulla stanza
+    this.gl[1].setPosition(fx, fy).setScale(300 / 256 * fl).setAlpha(0.6);            // alone della fiamma
+    this.gl[2].setPosition(hx, B.FL - 6).setScale(620 / 256 * fl, 120 / 256 * fl).setAlpha(0.45);   // luce sul pavimento
+    const vis = B.mins.filter(m => !m.dying && !(m.em > 0.6)).sort((a, b) => a.id - b.id), placed = [];     // fumetti: se due si toccano, il più nuovo sale
+    for (const m of vis) {
+      const base = m.air ? m.y - 130 * K : B.FL - 175 * K, w = m.tw + 56; let off = 0;
+      for (let l = 0; l < 6; l++) {
+        const y = base - l * 90, r = { x1: m.x - w / 2, x2: m.x + w / 2, y1: y - 40, y2: y + 40 }; off = l * 90;
+        if (!placed.some(q => r.x1 < q.x2 && r.x2 > q.x1 && r.y1 < q.y2 && r.y2 > q.y1)) { placed.push(r); break; }
+        if (l === 5) placed.push(r);
+      }
+      m.off = m.off === undefined ? off : m.off + (off - m.off) * Math.min(1, B.dt * 10);
+    }
+    for (const m of B.mins) {
+      if (m.dying) { m.spr.setPosition(m.x, m.y); continue; }
+      const hid = m.em > 0.6; m.t1.setVisible(!hid); m.t2.setVisible(!hid); m.bg.setVisible(!hid);          // il fumetto compare quando il mostro sta emergendo
+      if (hid) { m.spr.setPosition(m.x, m.y); continue; }
+      this.bsFrame(m.spr, m.air ? 'crow0_' + (Math.floor(m.t * 10) % 5) : 'blob1_' + (Math.floor(m.t * 8) % 5)); m.spr.setPosition(m.x, m.y).setRotation(m.air ? -0.45 * Math.pow(m.p, 1.4) : 0);
+      const bx = m.x - m.tw / 2, base = m.air ? m.y - 130 * K : B.FL - 175 * K, by = base - (m.off || 0), typed = m.w.slice(0, m.n);
+      m.t1.setText(typed).setPosition(bx, by); m.t2.setText(m.w.slice(m.n)).setPosition(bx + m.t1.width, by);
+      m.bg.clear(); m.bg.fillStyle(m.err > 0 ? 0xffd0d0 : 0xfffdf0, 1); m.bg.lineStyle(B.target === m ? 7 : 3, B.target === m ? 0x1b2fe0 : 0x222222, 1);
+      m.bg.fillRoundedRect(bx - 18, by - 34, m.tw + 36, 68, 18); m.bg.strokeRoundedRect(bx - 18, by - 34, m.tw + 36, 68, 18);
+      if ((m.off || 0) > 6) { m.bg.lineStyle(3, 0x222222, 0.7); m.bg.lineBetween(m.x, by + 34, m.x, base + 56); }        // filo che collega il fumetto al suo mostro
+      m.bg.fillStyle(m.err > 0 ? 0xffd0d0 : 0xfffdf0, 1); m.bg.fillTriangle(m.x - 12, by + 33, m.x + 12, by + 33, m.x, by + 56);
+      const top = B.target === m; m.bg.setDepth(top ? 16.5 : 15); m.t1.setDepth(top ? 17 : 16); m.t2.setDepth(top ? 17 : 16);
+    }
+    B.shots.forEach(s => { g.fillStyle(INK.edge, 1); g.fillCircle(s.x, s.y, 28); g.fillStyle(INK.core, 1); g.fillCircle(s.x, s.y, 18); g.fillStyle(INK.shine, 1); g.fillCircle(s.x - 6, s.y - 6, 6); });
+    B.vort.forEach(v => {                                              // ombra fumosa sul pavimento (stile Ico): compare PRIMA del mostro
+      const u = 1 - v.l / 1.8, it = Math.min(1, u / 0.4) * Math.min(1, (1 - u) / 0.35), R = 170 * (0.6 + 0.4 * it);
+      for (let q = 0; q < 7; q++) { g.fillStyle(0x05050a, 0.1 * it); g.fillEllipse(v.x, B.FL + 6, R * (2.3 - q * 0.3), R * (0.75 - q * 0.09)); }   // bordo morbido
+      for (let i = 0; i < 46; i++) { const fr = i / 46, a = fr * 9 + t * 7, rr = fr * R; g.fillStyle(i % 3 ? 0x07070c : 0x2a1f4a, 0.5 * it * (1 - fr * 0.4)); g.fillCircle(v.x + Math.cos(a) * rr, B.FL + 4 + Math.sin(a) * rr * 0.26, 5 + (1 - fr) * 11); }
+      for (let j = 0; j < 18; j++) { const ph = (t * 1.1 + j / 18) % 1; g.fillStyle(0x08080e, (1 - ph) * 0.3 * it); g.fillCircle(v.x + Math.sin(j * 2.1 + t * 2.4) * 55, B.FL - ph * 200 * it, 14 + ph * 28); }   // fumo che sale
+    });
+    B.pud.forEach(r => { g.fillStyle(0x0a0a10, Math.min(1, r.l) * 0.9); g.fillEllipse(r.x, B.FL + 6, 170 * Math.min(1, (1.6 - r.l) * 4 + 0.3), 28); });
+    B.rings.forEach(r => { g.fillStyle(0x08080c, r.l / 0.35 * 0.6); g.fillCircle(r.x, r.y, 40 + (1 - r.l / 0.35) * 130); });
+    B.bolts.forEach(r => { g.lineStyle(8 + 18 * r.l / 0.14, INK.core, 1); g.lineBetween(r.x1, r.y1, r.x2, r.y2); g.lineStyle(4, INK.shine, 1); g.lineBetween(r.x1, r.y1, r.x2, r.y2); });
+    B.parts.forEach(p => { g.fillStyle(p.c, Math.min(1, Math.max(0, p.l * 1.4))); g.fillCircle(p.x, p.y, p.r || 10); });
+    const bb = this.bbar, x0 = W / 2 - 460; bb.clear();                 // contatore di energia del mostro
+    bb.fillStyle(0x000000, 0.55); bb.fillRoundedRect(x0 - 10, 44, 940, 44, 10); bb.fillStyle(0x333333, 1); bb.fillRect(x0, 52, 920, 28);
+    bb.fillStyle(0xe63946, 1); bb.fillRect(x0, 52, 920 * B.hp / 100, 28); bb.lineStyle(3, 0xffffff, 1); bb.strokeRect(x0, 52, 920, 28);
+  }
+
+  /* ---------- Stanza 8: la salita in mongolfiera ---------- */
+  createAscent() {
+    const cfg = this.cfg, A = cfg.ascent, N = A.tiles.length;
+    const a = this.asc = { sc: 0, scEnd: N * A.T - H, vx: 0, t: 0, done: false, spd: A.speed };
+    this.ascImgs = A.tiles.map(k => this.add.image(0, 0, 'asc_' + k).setOrigin(0, 0).setDepth(0));
+    // il nero del corridoio è inchiostro vivo: bordi che ondeggiano e colano, volute blu che scorrono a due velocità
+    this.edgeG = this.add.graphics().setDepth(0.3);
+    this.inkL1 = this.add.tileSprite(W / 2, H / 2, W, H, 'ink_tex').setDepth(0.5).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.55).setTileScale(1.6, 1.6);
+    this.inkL2 = this.add.tileSprite(W / 2, H / 2, W, H, 'ink_tex').setDepth(0.55).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.4).setTileScale(2.7, 2.7);
+    this.inkMaskG = this.make.graphics({ x: 0, y: 0, add: false });
+    const inkMask = this.inkMaskG.createGeometryMask(); this.inkL1.setMask(inkMask); this.inkL2.setMask(inkMask);
+    this.buildPetals();
+    this.add.graphics().setDepth(18).fillStyle(0xf3e3c3, 0.72).fillRoundedRect(36, 40, 520, 140, 18);     // fondino per leggere cuori e barra sulle pietre
+    if (cfg.hud) this.buildHudPatch();
+    this.dbg = this.add.graphics().setDepth(200).setVisible(false);
+    this.buildHearts();
+    if (cfg.hudIcon) this.buildHudIcon();
+    this.drawHud();
+    this.buildInput();
+    // mongolfiera
+    const e0 = this.asc.edges = A.edges;
+    a.x = this.ascLimits(A.balloonY).mid;
+    this.balloon = this.add.image(a.x, A.balloonY, 'l7_globo').setScale(A.balloonScale).setDepth(6);
+    // pesci luminosi (sfondo nero: la fusione additiva li fa brillare)
+    const FK = { patrol: 'l8_pesce_s', dart: 'l8_pesce_g', wave: 'l8_pesce_v', loop: 'l8_pesce_p', chase: 'l8_pesce_r' };   // il colore dice come nuota: azzurro=patrol, oro=dart, verde=wave, viola=loop, rosso=chase
+    this.fishes = A.fish.map(f => ({
+      wy: f[0], ph: f[1], per: f[2], type: f[3], mul: f[4], fps: f[5], cx: null, pdy: 0, x: W / 2, y: -500,
+      img: this.add.sprite(0, -500, FK[f[3]] || 'l8_pesce_s', 0).setBlendMode(Phaser.BlendModes.ADD).setDepth(5).setVisible(false)
+    }));
+    this.buildHint();
+    this.cameras.main.fadeIn(350);
+  }
+
+  // limiti laterali del corridoio nero alla quota (y) dello schermo
+  ascLimits(y) {
+    const A = this.cfg.ascent, a = this.asc, N = A.tiles.length;
+    const u = H - y + a.sc, k = Math.max(0, Math.min(N - 1, Math.floor(u / A.T)));
+    const row = Math.max(0, Math.min(A.T - 1, A.T - (u - k * A.T)));
+    const E = A.edges[A.tiles[k]], i = Math.min(E.l.length - 1, Math.floor(row / 8));
+    return { l: E.l[i], r: E.r[i], mid: (E.l[i] + E.r[i]) / 2 };
+  }
+
+  updateAscent(delta) {
+    if (this.restarting) return;
+    const dt = Math.min(delta / 1000, 0.05), A = this.cfg.ascent, a = this.asc;
+    a.t += dt; this.invT = Math.max(0, this.invT - dt);
+    const live = !a.done && !this.dead;
+    // freccia su (o W) = SLANCIO: un colpo di velocità che poi si mantiene tenendo premuto e si smorza piano; freccia giù (o S) = rallenta
+    const kb = this.keys, upK = kb.UP.isDown || kb.W.isDown, dnK = kb.DOWN.isDown || kb.S.isDown;
+    if (live && (Phaser.Input.Keyboard.JustDown(kb.UP) || Phaser.Input.Keyboard.JustDown(kb.W))) {
+      a.spd = Math.min(A.speedMax, a.spd + A.boost); this.cameras.main.shake(180, 0.0025); Snd.pickup();
+    }
+    const tgtSpd = !live ? 0 : (upK && !dnK ? A.speedMax : (dnK && !upK ? A.speedMin : A.speed));
+    a.spd += (tgtSpd - a.spd) * Math.min(1, dt * (tgtSpd > a.spd ? 4 : (dnK ? 3 : 1.7)));
+    if (live) a.sc = Math.min(a.scEnd, a.sc + a.spd * dt);
+    const inten = Math.max(0, Math.min(1, (a.spd - A.speed) / (A.speedMax - A.speed)));
+    this.ascImgs.forEach((im, i) => { im.y = H - (i + 1) * A.T + a.sc; im.setVisible(im.y < H && im.y + A.T > 0); });
+    // ---- inchiostro: volute che scorrono, bordo vivo, gocce che colano sulla pietra ----
+    {
+      const t = a.t, N2 = A.tiles.length;
+      this.inkL1.tilePositionY -= a.spd * dt * 0.4 / 1.6; this.inkL1.tilePositionX = Math.sin(t * 0.25) * 140 + t * 10;
+      this.inkL2.tilePositionY -= a.spd * dt * 0.75 / 2.7; this.inkL2.tilePositionX = -t * 14 + Math.cos(t * 0.2) * 200 + 300;
+      this.inkL1.setAlpha(0.5 + 0.12 * Math.sin(t * 1.1)); this.inkL2.setAlpha(0.38 + 0.12 * Math.sin(t * 0.8 + 2));
+      const Lp = [], Rp = [], Lm = [], Rm = [];
+      for (let y = -16; y <= H + 16; y += 8) {
+        const q = this.ascLimits(y), wy = y - a.sc;                      // le onde restano attaccate al tunnel mentre scorre
+        const eL = 16 + 11 * Math.sin(wy * 0.021 + t * 1.3) + 8 * Math.sin(wy * 0.058 - t * 0.9) + 5 * Math.sin(wy * 0.13 + t * 2.1);
+        const eR = 16 + 11 * Math.sin(wy * 0.019 - t * 1.1 + 2) + 8 * Math.sin(wy * 0.061 + t * 1.0 + 1) + 5 * Math.sin(wy * 0.12 - t * 1.9);
+        Lp.push([q.l - eL, y]); Rp.push([q.r + eR, y]); Lm.push([q.l - eL * 0.55, y]); Rm.push([q.r + eR * 0.55, y]);
+      }
+      const poly = (g, L, R) => { g.beginPath(); g.moveTo(L[0][0], L[0][1]); L.forEach(p => g.lineTo(p[0], p[1])); for (let i = R.length - 1; i >= 0; i--) g.lineTo(R[i][0], R[i][1]); g.closePath(); g.fillPath(); };
+      const eg = this.edgeG; eg.clear(); eg.fillStyle(0x04050b, 0.97); poly(eg, Lp, Rp);
+      for (let i = 0; i < 40; i++) {                                     // gocce d'inchiostro che scendono lungo le pareti
+        const sy = H - ((i * 263) % (N2 * A.T)) + a.sc;
+        if (sy < -150 || sy > H + 150) continue;
+        const q = this.ascLimits(sy), right = i % 2 === 1, len = (40 + (i * 53) % 80) * (0.75 + 0.25 * Math.sin(t * 1.5 + i)), x = right ? q.r + 14 : q.l - 14;
+        eg.fillRect(x - 6, sy, 12, len); eg.fillCircle(x, sy + len, 9);
+      }
+      const mg = this.inkMaskG; mg.clear(); mg.fillStyle(0xffffff, 1); poly(mg, Lm, Rm);
+    }
+    // mongolfiera: frecce sinistra/destra (anche A/D)
+    const k = this.keys, dir = live ? ((k.LEFT.isDown || k.A.isDown ? -1 : 0) + (k.RIGHT.isDown || k.D.isDown ? 1 : 0)) : 0;
+    a.vx += (dir * A.steer - a.vx) * Math.min(1, dt * 5);
+    a.x += a.vx * dt;
+    let lo = -1e9, hi = 1e9;                                           // il corridoio nero fa da parete: si scivola lungo i bordi
+    [-170, -92, 0, 76].forEach(dy => { const q = this.ascLimits(A.balloonY + dy); lo = Math.max(lo, q.l); hi = Math.min(hi, q.r); });
+    const hw = 88;
+    if (a.x < lo + hw) { a.x = lo + hw; if (a.vx < 0) a.vx = 0; }
+    if (a.x > hi - hw) { a.x = hi - hw; if (a.vx > 0) a.vx = 0; }
+    const by = A.balloonY + Math.sin(a.t * 2.2) * 8 + inten * 50;
+    this.balloon.setScale(A.balloonScale, A.balloonScale * (1 + inten * 0.07)).setPosition(a.x, by).setAngle(a.vx / A.steer * 7 + Math.sin(a.t * 1.7) * 1.5);
+    this.balloon.setAlpha(this.invT > 0 && Math.floor(a.t * 14) % 2 ? 0.35 : 1);
+    // pesci: pattugliano il corridoio da parete a parete; se li tocchi perdi un cuore
+    const sc = A.balloonScale, ex = a.x, ey = by - 92 * (sc / 0.28) * 1, bx = a.x, bY = by + 76 * (sc / 0.28);
+    const SEQ = [0, 1, 2, 3, 4, 5, 4, 3, 2, 1];                       // le pinne vanno su e giù
+    this.fishes.forEach(f => {
+      const sy = H - f.wy + a.sc;
+      if (sy < -300 || sy > H + 300) { f.img.setVisible(false); return; }
+      const q = this.ascLimits(Math.max(0, Math.min(H, sy)));
+      const m = f.mul, amp = Math.max(0, (q.r - q.l) / 2 - 100 * m), ph = a.t * (Math.PI * 2 / ((f.per || 1) * 1.15)) + f.ph;
+      let x, dy = 0, face;
+      if (f.type === 'dart') { const sn = Math.sin(ph); x = q.mid + Math.sign(sn) * Math.pow(Math.abs(sn), 0.6) * amp; face = Math.cos(ph) < 0; }
+      else if (f.type === 'wave') { x = q.mid + Math.sin(ph) * amp; dy = Math.sin(ph * 2.3 + 1) * 100; face = Math.cos(ph) < 0; }
+      else if (f.type === 'loop') { x = q.mid + Math.sin(ph) * amp * 0.8; dy = Math.cos(ph) * 110; face = Math.cos(ph) < 0; }
+      else if (f.type === 'chase') {
+        if (f.cx === null) f.cx = q.mid;
+        const tgt = Math.max(q.l + 100 * m, Math.min(q.r - 100 * m, a.x)), st = 95 * dt;
+        const dx = Math.max(-st, Math.min(st, tgt - f.cx)); f.cx += dx; x = f.cx; face = dx < 0 || (dx === 0 && f.img.flipX); dy = Math.sin(a.t * 3 + f.ph) * 28;
+      } else { x = q.mid + Math.sin(ph) * amp; face = Math.cos(ph) < 0; }
+      x = Math.max(q.l + 80 * m, Math.min(q.r - 80 * m, x));
+      const y = sy + dy, vy = (dy - f.pdy) / Math.max(dt, 0.001); f.pdy = dy;
+      const tilt = Math.max(-16, Math.min(16, vy / 260 * 14)) * (face ? -1 : 1) + Math.sin(a.t * 6 + f.ph) * 3;
+      f.x = x; f.y = y;
+      f.img.setVisible(true).setPosition(x, y).setFlipX(face).setAngle(tilt).setScale(1.0 * m)
+        .setFrame(SEQ[Math.floor(a.t * f.fps + f.ph * 3) % SEQ.length]);
+      const r = 36 * m;
+      if (live && this.invT <= 0 && (Math.hypot(x - ex, y - ey) < r + 62 || Math.hypot(x - bx, y - bY) < r + 26)) this.hurtBalloon(x);
+    });
+    // in cima: fine del tratto
+    if (live && a.sc >= a.scEnd) { a.done = true; this.finished = true; this.time.delayedCall(600, () => this.playEndVideo(this.cfg.endVideo)); }   // in cima: parte il video
+  }
+
+  // video a tutto schermo (assets/castello.mp4) alla fine della stanza; finito (o saltato) si torna al menu del libro.
+  // Il file viene caricato per intero prima di partire (funziona anche se il server non supporta lo streaming a pezzi).
+  playEndVideo(src) {
+    if (this.restarting) return;
+    this.restarting = true; Snd.stop();
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:30;background:#000;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .6s ease';
+    const v = document.createElement('video'); v.playsInline = true; v.preload = 'auto';
+    v.style.cssText = 'width:100%;height:100%;object-fit:contain;background:#000';
+    const msg = document.createElement('div');
+    msg.style.cssText = 'position:absolute;left:8%;right:8%;top:42%;text-align:center;color:#f3e3c3;font:italic 26px/1.4 Georgia,serif;display:none';
+    const sk = document.createElement('button'); sk.textContent = 'Salta ▶▶';
+    sk.style.cssText = 'position:absolute;right:24px;bottom:24px;padding:10px 18px;font:italic 20px Georgia,serif;color:#f3e3c3;background:rgba(0,0,0,.45);border:1px solid rgba(243,227,195,.5);border-radius:8px;cursor:pointer;z-index:2';
+    ov.appendChild(v); ov.appendChild(msg); ov.appendChild(sk); document.body.appendChild(ov);
+    let done = false, blobUrl = null, slept = false;
+    // mentre gira il video il gioco dietro viene fermato e nascosto: così tutta la potenza va al video (niente scatti)
+    const gm = document.getElementById('game');
+    const sleepT = setTimeout(() => { slept = true; this.game.loop.sleep(); if (gm) gm.style.visibility = 'hidden'; }, 700);
+    const wakeGame = () => { clearTimeout(sleepT); if (slept) { this.game.loop.wake(); slept = false; } if (gm) gm.style.visibility = ''; };
+    const toMenu = () => {
+      wakeGame();
+      if (this.cfg.afterVideo) { this.scene.restart({ level: this.cfg.afterVideo, lives: Math.max(1, this.lives) }); return; }
+      Save.set({ level: this.cfg.id, lives: 4 });
+      if (window.showMenu) { this.scene.start('Boot'); window.showMenu(); } else this.scene.restart({ level: this.cfg.id, lives: 4 });
+    };
+    const close = () => { if (done) return; done = true; window.removeEventListener('keydown', onKey); ov.style.opacity = '0'; setTimeout(() => { v.pause(); if (blobUrl) URL.revokeObjectURL(blobUrl); ov.remove(); toMenu(); }, 600); };
+    const onKey = (e) => { if (e.code === 'Escape' || e.code === 'Space' || e.code === 'Enter') close(); };
+    const fail = (why) => { console.error('[castello] ' + why); msg.textContent = 'Non riesco a riprodurre ' + src + ' — ' + why; msg.style.display = 'block'; };
+    window.addEventListener('keydown', onKey);
+    v.addEventListener('ended', close);
+    v.addEventListener('error', () => fail('il browser non legge questo video (serve MP4 con video H.264 e audio AAC)'));
+    sk.addEventListener('click', close);
+    const start = () => {
+      const p = v.play();
+      if (p && p.catch) p.catch(() => { v.muted = true; const r = v.play(); if (r && r.catch) r.catch(e => fail('avvio bloccato dal browser: ' + e.name)); });
+    };
+    requestAnimationFrame(() => { ov.style.opacity = '1'; });
+    fetch(src).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
+      .then(b => { blobUrl = URL.createObjectURL(new Blob([b], { type: 'video/mp4' })); v.src = blobUrl; start(); })
+      .catch(err => {
+        if (/HTTP 404/.test(String(err))) { fail('file non trovato nella cartella assets'); return; }
+        v.src = src; start();                                          // es. aperto da file://: provo il caricamento diretto
+      });
+  }
+
+  hurtBalloon(fx) {
+    const a = this.asc;
+    Snd.hurt(); this.lives--; this.drawHearts();
+    this.invT = 2.4;                                                  // dopo un colpo si è intoccabili più a lungo
+    a.vx = (a.x >= fx ? 1 : -1) * 520;
+    this.cameras.main.shake(160, 0.005);
+    if (this.lives <= 0) { this.dead = true; this.gameOver(); }
+  }
+
   // più leve (stanza 4): ognuna si vede muoversi quando la si aziona
   buildLevers() {
     this.stoneG = this.add.graphics().setDepth(6);
     this.levs = this.cfg.levers.map(Lc => {
       const sp = this.cfg.sprites[Lc.sprite];
-      const img = this.add.image(Lc.pivot.x, Lc.pivot.y, sp.key).setOrigin((Lc.pivot.x - sp.x) / sp.w, (Lc.pivot.y - sp.y) / sp.h).setDepth(3.4)
+      const img = this.add.image(Lc.pivot.x, Lc.pivot.y, sp.key).setOrigin((Lc.pivot.x - sp.x) / sp.w, (Lc.pivot.y - sp.y) / sp.h).setDepth(3.4).setScale(Lc.sc || 1)
         .setRotation(Phaser.Math.DegToRad(Lc.rest - Lc.lean0));                      // da ferma ha l’inclinazione disegnata
       this.add.circle(Lc.pivot.x, Lc.pivot.y + 2, 7, 0x3a302a).setStrokeStyle(2, 0x120d0a).setDepth(3.6);             // perno: tiene la leva attaccata alla base
       this.add.circle(Lc.pivot.x - 2, Lc.pivot.y, 2, 0x9a8a78, 0.85).setDepth(3.7);
@@ -939,7 +1633,8 @@ class LevelScene extends Phaser.Scene {
     this.tweens.add({ targets: lv.img, rotation: Phaser.Math.DegToRad(lv.cfg.pull - lv.cfg.lean0), duration: 380, ease: 'Back.easeOut' });   // la leva si inclina dall’altra parte
     this.cameras.main.flash(200, 120, 150, 255);
     this.toast(lv.cfg.msg, W / 2, 330);
-    if (lv.cfg.action === 'stairs') this.growStones();
+    if (lv.cfg.action === 'balloon') this.releaseGlobo();
+    else if (lv.cfg.action === 'stairs') this.growStones();
     else if (lv.cfg.action === 'puncture') this.time.delayedCall(900, () => this.punctureFlask());
   }
 
@@ -1396,6 +2091,154 @@ class LevelScene extends Phaser.Scene {
     });
   }
 
+  /* ---------- Stanza 6: grammofono e fiori musicali ---------- */
+  snGearArt(g, r) {                                                  // ruota dentata d'ottone (perno al centro, nel punto 0,0)
+    g.clear(); const n = 10, pts = [];
+    for (let k = 0; k < n * 4; k++) { const a = k / (n * 4) * Math.PI * 2, q = k % 4, rad = (q === 0 || q === 1) ? r : r * 0.8; pts.push({ x: Math.cos(a) * rad, y: Math.sin(a) * rad }); }   // 10 denti
+    g.fillStyle(0xc8963c, 1); g.fillPoints(pts, true); g.lineStyle(4, 0x4a2f0f, 1); g.strokePoints(pts, true);
+    g.fillStyle(0xe4b455, 1); g.fillCircle(0, 0, r * 0.58); g.strokeCircle(0, 0, r * 0.58);                                                   // disco
+    g.lineStyle(3, 0x4a2f0f, 1); for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + 0.4; g.lineBetween(Math.cos(a) * r * 0.22, Math.sin(a) * r * 0.22, Math.cos(a) * r * 0.55, Math.sin(a) * r * 0.55); }   // raggi
+    g.fillStyle(0x4a2f0f, 1); g.fillCircle(0, 0, r * 0.2);                                                                                    // foro del perno
+  }
+
+  buildSinfonia() {
+    const Sn = this.cfg.sinfonia, St = this.sn = snInit(this.cfg); this.pz = St.Z;
+    const bt = this.textures.get('l5_boccetta').getSourceImage();
+    this.add.image(95, 112, 'l5_boccetta').setDepth(60).setScale(100 / bt.height);              // icona dell'inchiostro nel HUD
+    const st = { fontFamily: 'Georgia, serif', fontStyle: 'italic', fontSize: '38px', color: '#1b2fae', backgroundColor: 'rgba(250,238,215,0.9)', padding: { x: 14, y: 6 } };
+    // l'ingranaggio da raccogliere (con un alone che pulsa)
+    St.item = this.add.graphics().setDepth(6); this.snGearArt(St.item, 34);
+    St.item.setPosition(Sn.crank.x * S6, Sn.crank.y * S6 - 38);
+    this.tweens.add({ targets: St.item, rotation: Math.PI * 2, duration: 7000, repeat: -1 });                      // l'ingranaggio gira piano per farsi notare
+    St.halo = this.add.circle(Sn.crank.x * S6, Sn.crank.y * S6 - 38, 58, 0xffd76a, 0.35).setDepth(5.9);
+    this.tweens.add({ targets: St.halo, scale: 1.5, alpha: 0.08, duration: 900, yoyo: true, repeat: -1 });
+    St.carry = this.add.graphics().setDepth(61).setVisible(false); this.snGearArt(St.carry, 24); St.carry.setPosition(560, 112);   // icona "ho l'ingranaggio" nel HUD
+    St.on = this.add.graphics().setDepth(6).setVisible(false); this.snGearArt(St.on, 32); St.on.setPosition(Sn.crankOn.x * S6, Sn.crankOn.y * S6);
+    St.prompt = this.add.text(0, 0, 'Premi E', st).setOrigin(0.5).setDepth(40).setVisible(false);
+    St.ropeHint = this.add.text(0, 0, 'W ▲', { ...st, fontSize: '32px' }).setOrigin(0.5).setDepth(40).setVisible(false);
+    St.waterG = this.add.graphics().setDepth(3);                                         // liquido nero della vasca: onde e riflessi
+    // luci e ombre dei 5 fiori
+    const bg = this.textures.get(this.cfg.key).getSourceImage();
+    St.fl = Sn.flowers.map((f, i) => {
+      // ritaglio del fiore dallo sfondo con i bordi sfumati: identico al disegno finché sta fermo, oscilla quando viene suonato
+      const rx = f.hit.rx * S6 * 1.15, ry = f.hit.ry * S6 * 1.15, w = Math.ceil(rx * 2), h = Math.ceil(ry * 2), key = 'snfl' + i;
+      if (!this.textures.exists(key)) {
+        const cv = document.createElement('canvas'); cv.width = w; cv.height = h; const cx = cv.getContext('2d');
+        cx.drawImage(bg, f.hit.x * S6 - rx, f.hit.y * S6 - ry, w, h, 0, 0, w, h);
+        cx.globalCompositeOperation = 'destination-in'; cx.save(); cx.translate(w / 2, h / 2); cx.scale(rx, ry);
+        const gr = cx.createRadialGradient(0, 0, 0.55, 0, 0, 1); gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+        cx.fillStyle = gr; cx.fillRect(-1, -1, 2, 2); cx.restore();
+        const tx = this.textures.createCanvas(key, w, h); tx.getContext().drawImage(cv, 0, 0); tx.refresh();
+      }
+      return {
+      img: this.add.image(f.hit.x * S6, f.hit.y * S6 + 0.2 * h, key).setOrigin(0.5, 0.7).setDepth(5.05),
+      glow: this.add.circle(f.gx * S6, f.gy * S6, f.gr * S6, 0x8fc0ff, 0).setBlendMode(Phaser.BlendModes.ADD).setDepth(5.1),
+      dim: this.add.ellipse(f.hit.x * S6, f.hit.y * S6, f.hit.rx * 1.7 * S6, f.hit.ry * 1.7 * S6, 0x1b1f3a, 0).setDepth(5.2),
+      lit: false
+      };
+    });
+  }
+
+  snNote(x, y, txt, big) {                                          // nota musicale stilizzata che sale e svanisce
+    const t = this.add.text(x, y, txt, { fontFamily: 'Georgia, serif', fontSize: big ? '86px' : '64px', color: '#2438c8', stroke: '#fff6dc', strokeThickness: 6 }).setOrigin(0.5).setDepth(45);
+    this.tweens.add({ targets: t, y: y - 130, alpha: 0, duration: 1300, ease: 'Quad.out', onComplete: () => t.destroy() });
+  }
+
+  snSway(i) {                                                        // il fiore dondola un attimo
+    const im = this.sn.fl[i].img; this.tweens.killTweensOf(im); im.setAngle(0).setScale(1);
+    im.setPosition(this.cfg.sinfonia.flowers[i].hit.x * S6, this.cfg.sinfonia.flowers[i].hit.y * S6 + 0.2 * im.height);
+    this.tweens.add({ targets: im, angle: { from: -5, to: 5 }, scale: 1.06, duration: 150, yoyo: true, repeat: 2, ease: 'Sine.inOut', onComplete: () => { im.setAngle(0).setScale(1); } });
+  }
+
+  snPulse(i, dur) {                                                  // il fiore si illumina un attimo (usato dalla melodia di aiuto)
+    const f = this.sn.fl[i]; this.snSway(i);
+    this.tweens.add({ targets: f.glow, alpha: 0.95, scale: 1.5, duration: dur / 2, yoyo: true, onComplete: () => { f.glow.setScale(1); f.glow.setAlpha(f.lit ? 0.7 : 0); } });
+  }
+
+  snMelody(first) {                                                  // il grammofono suona le 5 note e i fiori si accendono nell'ordine
+    const Sn = this.cfg.sinfonia, St = this.sn;
+    St.busy = true; St.step = 0; St.fl.forEach(f => { f.lit = false; f.glow.setAlpha(0); });
+    this.tweens.add({ targets: St.on, rotation: St.on.rotation + Math.PI * 2 * 3.2, duration: 3800, ease: 'Sine.inOut' });
+    SN_NOTES.forEach((n, k) => this.time.delayedCall(500 + k * 650, () => {
+      Snd.note(n.midi); this.snNote(Sn.horn.x * S6, Sn.horn.y * S6, '♪', false);                       // solo suono: i fiori restano fermi
+    }));
+    this.time.delayedCall(500 + 5 * 650 + 400, () => { St.busy = false; this.toast('Ora tocca i fiori nello stesso ordine', W / 2, 330); });
+  }
+
+  interactSn() {                                                     // tasto E: grammofono oppure stelo di un fiore
+    const Sn = this.cfg.sinfonia, St = this.sn, s = this.ps;
+    if (this.finished || this.dead) return;
+    if (!snNearGramo(Sn, s)) {
+      const zi = snZone(Sn, s, St.step);
+      if (zi < 0) return;
+      if (!St.placed) this.toast('Il fiore resta muto… serve la musica del grammofono', s.x, s.bottom - 260);
+      else if (!St.busy && !St.done) this.snFlower(zi);
+      return;
+    }
+    if (!St.placed) {
+      if (!St.hasCrank) { this.toast('Il grammofono è fermo… gli manca un ingranaggio', s.x, s.bottom - 260); return; }
+      St.placed = true; St.hasCrank = false; St.carry.setVisible(false); St.on.setVisible(true).setScale(0.2); this.tweens.add({ targets: St.on, scale: 1, duration: 350, ease: 'Back.easeOut' }); St.prompt.setVisible(false);
+      Snd.stomp(); this.toast('Il grammofono si mette a suonare…', W / 2, 330); this.snMelody(true);
+    } else if (!St.busy && !St.done) { this.toast('Riascolta la melodia', W / 2, 330); this.snMelody(false); }
+  }
+
+  updateSinfonia(dt, s) {
+    const Sn = this.cfg.sinfonia, St = this.sn, Z = St.Z, t = this.time.now / 1000;
+    // raccogli la manovella
+    if (!St.hasCrank && !St.placed && snNearCrank(Sn, s)) {
+      St.hasCrank = true; St.item.setVisible(false); St.halo.setVisible(false); St.carry.setVisible(true); Snd.pickup();
+      this.toast('Hai trovato un ingranaggio! Portalo al grammofono (E)', W / 2, 330);
+    }
+    // suggerimenti: E al grammofono, W vicino ai rampicanti
+    const nearG = snNearGramo(Sn, s) && (St.hasCrank || (St.placed && !St.busy && !St.done));
+    St.prompt.setVisible(nearG && !this.finished); if (nearG) St.prompt.setPosition(s.x, s.bottom - 230);
+    let near = false;
+    Z.ropes.forEach(rp => { if (!Z.climb && s.onGround && Math.abs(s.x - rp.x) < PZ_CLIMB.grab && s.bottom >= rp.y0 + 2 && s.bottom <= rp.y1 + 2 && s.bottom < rp.y1 + 1 && s.bottom > rp.y0 + 2) near = true; });
+    St.ropeHint.setVisible(near && !this.finished && !this.dead); if (near) St.ropeHint.setPosition(s.x, s.bottom - 200);
+    // vicino allo stelo di un fiore compare "Premi E"
+    const zi = snZone(Sn, s, St.step), nearF = zi >= 0 && !St.busy && !St.done && !nearG;
+    if (nearF) { St.prompt.setVisible(!this.finished); St.prompt.setPosition(s.x, s.bottom - 230); }
+    // caduta nella vasca: schizzo d'acqua (poi si perde un cuore e si riparte dall'ultimo punto sicuro)
+    if (s.bottom > 690 * S6 && !St.wet) { St.wet = true; Snd.splash(); for (let k = 0; k < 8; k++) { const d = this.add.circle(s.x + Phaser.Math.Between(-30, 30), 690 * S6, Phaser.Math.Between(5, 11), 0x9db4ff, 0.9).setDepth(9); this.tweens.add({ targets: d, y: 690 * S6 - Phaser.Math.Between(60, 160), alpha: 0, duration: 650, onComplete: () => d.destroy() }); } }
+    if (s.bottom < 640 * S6) St.wet = false;
+    if (!this.dead && !this.finished && s.bottom > 745 * S6) { this.dead = true; this.die(); }          // caduto nell'inchiostro: perdi un cuore e la stanza riparte dall'inizio
+    // liquido nero della vasca: sfumatura che pulsa e onde concentriche che si allargano
+    const wg = St.waterG, wx = 500 * S6, wy = 718 * S6, wrx = 150 * S6, wry = 25 * S6; wg.clear();
+    wg.fillStyle(0x07060c, 0.42 + 0.08 * Math.sin(t * 1.3)); wg.fillEllipse(wx, wy, wrx * 1.9, wry * 1.9);
+    for (let k = 0; k < 4; k++) {
+      const ph = (t * 0.28 + k / 4) % 1, rx = wrx * (0.12 + 0.82 * ph), ry = wry * (0.12 + 0.82 * ph);
+      wg.lineStyle(3, 0x4a4466, (1 - ph) * 0.7); wg.strokeEllipse(wx + Math.sin(k * 2.1 + t * 0.3) * 30, wy, rx * 2, ry * 2);
+    }
+    wg.lineStyle(2, 0x8d86b4, 0.35); wg.strokeEllipse(wx + Math.sin(t * 0.8) * wrx * 0.5, wy - wry * 0.1, wrx * 0.5, wry * 0.35);        // riflesso che scivola
+    // i fiori accesi pulsano piano
+    St.fl.forEach(f => { if (f.lit && !St.done) f.glow.setAlpha(0.6 + 0.12 * Math.sin(t * 4)); });
+  }
+
+  snFlower(i) {
+    const Sn = this.cfg.sinfonia, St = this.sn, f = St.fl[i], fl = Sn.flowers[i], r = snTouch(St, i);
+    if (r === 'ok' || r === 'done') {                                // nota giusta: suono limpido, luce azzurra e nota musicale
+      f.lit = true; f.glow.setAlpha(0.8); Snd.note(SN_NOTES[i].midi); this.snSway(i);
+      this.snNote(fl.hit.x * S6, (fl.hit.y - fl.hit.ry * 0.6) * S6, '♪', true);
+      this.tweens.add({ targets: f.glow, scale: 1.7, duration: 220, yoyo: true });
+      if (r === 'done') this.snWin();
+    } else {                                                         // nota sbagliata: suono cupo e dissonante, i fiori si spengono, si riparte
+      St.busy = true; Snd.dissonant(); this.cameras.main.shake(220, 0.004);
+      St.fl.forEach(g => { g.lit = false; g.glow.setAlpha(0); g.dim.setAlpha(0.6); this.tweens.add({ targets: g.dim, alpha: 0, duration: 1500, delay: 300 }); });
+      this.toast('Nota sbagliata… ricomincia da capo', W / 2, 330);
+      this.time.delayedCall(1500, () => { St.busy = false; });
+    }
+  }
+
+  snWin() {                                                          // sequenza completa: melodia trionfale, fiori accesi insieme, porta sbloccata
+    const Sn = this.cfg.sinfonia, St = this.sn;
+    St.busy = true; Snd.triumph();
+    this.tweens.add({ targets: St.on, rotation: St.on.rotation + Math.PI * 2 * 5, duration: 3000, ease: 'Sine.inOut' });
+    St.fl.forEach((f, i) => { f.glow.setAlpha(1); this.tweens.add({ targets: f.glow, scale: 1.9, alpha: 0.5, duration: 700, yoyo: true, repeat: 3 }); });
+    for (let k = 0; k < 7; k++) this.time.delayedCall(k * 350, () => this.snNote(Sn.horn.x * S6 + Phaser.Math.Between(-50, 50), Sn.horn.y * S6, '♫', true));
+    this.cameras.main.flash(400, 150, 180, 255);
+    this.time.delayedCall(1800, () => { this.toast('La porta blu si è sbloccata!', W / 2, 330); this.gateOpen = true; this.openDoor(); });
+  }
+
   /* ---------- Giocatore ---------- */
   buildPlayer() {
     const tex = this.textures.get('player');
@@ -1743,6 +2586,12 @@ class LevelScene extends Phaser.Scene {
     }
   }
 
+  // boccetta d'inchiostro a sinistra di cuori e barra (stanze 5 e 6 la disegnano nel proprio codice)
+  buildHudIcon() {
+    const bt = this.textures.get('l5_boccetta').getSourceImage();
+    this.add.image(95, 112, 'l5_boccetta').setDepth(60).setScale(100 / bt.height);
+  }
+
   /* ---------- Cuori (vite): coprono quelli disegnati nello sfondo e li ridisegnano ---------- */
   buildHearts() {
     this.lives = this.startLives; this.invT = 0; this.hurtT = 0;
@@ -1816,9 +2665,9 @@ class LevelScene extends Phaser.Scene {
   }
 
   /* ---------- Gambe disegnate a codice (cinematica inversa a 2 segmenti) ---------- */
-  drawLegs(x, gy, hy, phase, f) {
+  drawLegs(x, gy, hy, phase, f, k = 1) {
     const g = this.legG; g.clear();
-    const L = 18.4, S = 18.4, LIFT = 13.6, hx = 0, hyL = hy - gy;
+    const L = 18.4 * k, S = 18.4 * k, LIFT = 13.6 * k, hx = 0, hyL = hy - gy;
     for (const k of [1, 0]) {
       const p = phase + k * Math.PI;
       let fx = S * Math.cos(p), fy = -LIFT * Math.max(0, -Math.sin(p));
@@ -1836,6 +2685,8 @@ class LevelScene extends Phaser.Scene {
 
   /* ---------- Loop ---------- */
   update(time, delta) {
+    if (this.cfg.ascent) { this.updateAscent(delta); return; }
+    if (this.cfg.boss) { this.updateBoss(delta); return; }
     const dt = Math.min(delta / 1000, 0.05);
     const b = this.pBody, s = this.ps, cfg = this.cfg;
 
@@ -1907,7 +2758,8 @@ class LevelScene extends Phaser.Scene {
     }
     if (this.fn) this.updateFunnel(dt, s);
     if (this.fl) this.updateFlasks(dt, s);
-    if (this.pz) this.updatePozzo(dt, s);
+    if (this.pz && cfg.pozzo) this.updatePozzo(dt, s);
+    if (this.sn) this.updateSinfonia(dt, s);
     if (this.lever && !this.lever.done) {
       const Lv = cfg.lever;
       this.leverPrompt.setVisible(Math.abs(s.x - Lv.x) < Lv.r && Math.abs(s.bottom - Lv.y) < 30 && !this.finished);
@@ -2106,7 +2958,7 @@ function startGame(level, lives) {
   let menuReady = false;
   const menuOn = () => { if (menuReady) return; menuReady = true; fit(); menu.classList.add('on'); skip.style.display = 'none'; refreshContinue(); };
   const flash = (t) => { toastEl.textContent = t; toastEl.classList.add('show'); clearTimeout(flash.t); flash.t = setTimeout(() => toastEl.classList.remove('show'), 2200); };
-  const refreshContinue = () => { const b = menu.querySelector('[data-act=cont]'), sv = Save.get(); b.classList.toggle('dim', !(sv && LEVELS[sv.level])); };
+  const refreshContinue = () => { const b = menu.querySelector('[data-act=cont]'), sv = Save.get(); if (b) b.classList.toggle('dim', !(sv && LEVELS[sv.level])); };
 
   /* ---------- pannelli sulla pagina destra ---------- */
   const closePanel = () => { panel.classList.remove('open'); panel.innerHTML = ''; panel.dataset.kind = ''; };
@@ -2117,22 +2969,25 @@ function startGame(level, lives) {
     if (kind === 'help') {
       const R = (k, d) => '<div class="row key"><span>' + k + '</span><span class="d">' + d + '</span></div>';
       panel.innerHTML = '<h2>Spiegazioni</h2><div class="rule"></div>' +
-        R('<kbd>A</kbd><kbd>D</kbd> · <kbd>←</kbd><kbd>→</kbd>', 'corri') +
-        R('<kbd>W</kbd> · <kbd>Spazio</kbd> · <kbd>↑</kbd>', 'salta (anche sui mostri!)') +
-        R('<kbd>Mouse</kbd> tenuto premuto', 'traccia l’inchiostro') +
-        R('<kbd>E</kbd>', 'tira la leva') +
+        R('<kbd>←</kbd><kbd>→</kbd> · <kbd>A</kbd><kbd>D</kbd>', 'muovi l’omino') +
+        R('<kbd>Spazio</kbd> · <kbd>↑</kbd> · <kbd>W</kbd>', 'salta (anche sui mostri!)') +
+        R('<kbd>W</kbd> <kbd>↑</kbd> / <kbd>S</kbd> <kbd>↓</kbd>', 'sali / scendi dai rampicanti') +
+        R('<kbd>E</kbd>', 'azione: leve, ingranaggi, grammofono, fiori') +
+        R('<kbd>Mouse</kbd> premuto', 'traccia l’inchiostro') +
         R('<kbd>R</kbd>', 'riavvia la stanza') +
-        R('<kbd>M</kbd>', 'audio acceso / spento') +
         R('<kbd>Invio</kbd> · <kbd>Spazio</kbd>', 'avanti dopo il pop-up') +
-        '<p class="note">Hai 4 cuori: se finiscono, l’inchiostro si asciuga e il libro si riapre.</p>' + foot;
+        '<p class="note" style="text-align:left;font-style:normal;color:#2a1d14;margin-top:calc(var(--u)*1.1)"><b>Il ponte d’inchiostro.</b> Tieni premuto il mouse e traccia una linea: dove ci sono due punte di roccia da unire nasce un ponte su cui camminare. L’inchiostro che usi si vede nella barra in alto, vicino alla boccetta.</p>' +
+        '<p class="note" style="text-align:left;font-style:normal;color:#2a1d14"><b>Nella mongolfiera</b> (la salita): <kbd>←</kbd><kbd>→</kbd> muovi la mongolfiera, <kbd>↑</kbd> slancio in avanti, <kbd>↓</kbd> rallenti. Schiva i pesci luminosi!</p>' +
+        '<p class="note">Schiaccia i mostri saltandoci sopra; corvi e pesci ti tolgono un cuore. Hai 4 cuori: se finiscono, l’inchiostro si asciuga e il libro si riapre.</p>' + foot;
     } else if (kind === 'opts') {
       const p = Prefs.get();
       panel.innerHTML = '<h2>Opzioni</h2><div class="rule"></div>' +
-        '<div class="row"><span>Musica</span><input type="range" min="0" max="100" value="' + Math.round(p.music * 100) + '" data-pref="music"></div>' +
-        '<div class="row"><span>Effetti</span><input type="range" min="0" max="100" value="' + Math.round(p.sfx * 100) + '" data-pref="sfx"></div>' +
-        '<div class="row"><span>Audio</span><button class="pb ghost" data-act2="mute">' + (p.muted ? 'Spento' : 'Acceso') + '</button></div>' +
         '<div class="row"><span>Schermo intero</span><button class="pb ghost" data-act2="full">Attiva / disattiva</button></div>' +
         '<div class="row"><span>Partita salvata</span><button class="pb ghost" data-act2="wipe">Cancella</button></div>' + foot;
+    } else if (kind === 'newgame') {
+      const sv = Save.get();
+      panel.innerHTML = '<h2>Nuova partita</h2><div class="rule"></div><p class="note">Hai già una partita salvata (stanza ' + (sv ? sv.level : '') + '). Se ricominci, la perdi.</p>' +
+        '<div class="row"><button class="pb" data-act2="newyes">Ricomincia da capo</button><button class="pb ghost" data-close="1">Annulla</button></div>';
     } else if (kind === 'levels') {
       const btn = (id) => '<button data-level="' + id + '"><b>' + id + '</b>' + (LEVELS[id].name || ('Stanza ' + id)) + '</button>';
       panel.innerHTML = '<h2>Scegli il livello</h2><div class="rule"></div><div class="lv">' + Object.keys(LEVELS).map(btn).join('') + '</div>' +
@@ -2147,6 +3002,7 @@ function startGame(level, lives) {
     const a = t.dataset.act2, p = Prefs.get();
     if (a === 'mute') { Snd.setMuted(!p.muted); applyVideoVol(); t.textContent = Prefs.get().muted ? 'Spento' : 'Acceso'; }
     if (a === 'full') { const d = document, el = d.documentElement; if (d.fullscreenElement) d.exitFullscreen(); else if (el.requestFullscreen) el.requestFullscreen().catch(() => {}); }
+    if (a === 'newyes') { Save.clear(); closePanel(); startGame(1, 4); }
     if (a === 'wipe') { Save.clear(); refreshContinue(); flash('Partita cancellata'); }
   });
   panel.addEventListener('input', (e) => {
@@ -2158,11 +3014,21 @@ function startGame(level, lives) {
 
   /* ---------- voci del menu ---------- */
   const ACT = {
-    new() { Save.clear(); startGame(1, 4); },
+    new() { const sv = Save.get(); if (sv && sv.level > 1 && LEVELS[sv.level]) { openPanel('newgame'); return; } Save.clear(); startGame(1, 4); },
     cont() { const sv = Save.get(); if (!sv || !LEVELS[sv.level]) { flash('Nessuna partita da riprendere'); return; } startGame(sv.level, sv.lives || 4); },
     opts() { openPanel('opts'); },
     help() { openPanel('help'); },
-    levels() { openPanel('levels'); }
+    levels() { openPanel('levels'); },
+    exit() {                                                           // ESCI: chiude la scheda; se il browser non lo permette, schermata di saluto
+      try { if (document.fullscreenElement) document.exitFullscreen(); } catch (_) {}
+      try { Snd.stop(); v.pause(); } catch (_) {}
+      const ov = document.createElement('div');
+      ov.style.cssText = 'position:fixed;inset:0;z-index:99;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;color:#f3e3c3;font:italic 38px/1.4 Georgia,serif;text-align:center;opacity:0;transition:opacity .8s ease';
+      ov.innerHTML = '<div>Grazie per aver giocato</div><div style="font-size:26px;opacity:.75">BLUE INK STORY</div><button style="margin-top:20px;padding:10px 24px;font:italic 22px Georgia,serif;color:#f3e3c3;background:rgba(0,0,0,.45);border:1px solid rgba(243,227,195,.5);border-radius:8px;cursor:pointer">Torna al menu</button>';
+      document.body.appendChild(ov); requestAnimationFrame(() => { ov.style.opacity = '1'; });
+      ov.querySelector('button').addEventListener('click', (e) => { e.stopPropagation(); ov.remove(); if (window.showMenu) window.showMenu(); });
+      setTimeout(() => { try { window.close(); } catch (_) {} }, 1200);
+    }
   };
   menu.querySelectorAll('.mi').forEach(b => b.addEventListener('click', (e) => { e.stopPropagation(); if (menuReady && !gameStarted) ACT[b.dataset.act](); }));
   menu.addEventListener('pointerdown', (e) => e.stopPropagation());
@@ -2210,7 +3076,7 @@ function startGame(level, lives) {
   GEST.forEach(ev => document.addEventListener(ev, firstGesture, true));
   const showGate = () => { gating = true; v.pause(); try { v.currentTime = 0; } catch (_) {} gate.style.display = 'flex'; };
   applyVideoVol();
-  if (QS.get('gate') === '1') { showGate(); return; }            // ?gate=1 mostra sempre la schermata (per vederla/modificarla)
+  if (QS.get('gate') !== '0') { showGate(); return; }            // la schermata d'avvio compare sempre: il primo clic porta il video e il gioco a schermo intero e sblocca l'audio (?gate=0 per saltarla)            // ?gate=1 mostra sempre la schermata (per vederla/modificarla)
   const p = v.play();
   if (p && p.catch) p.catch(() => {
     // audio automatico bloccato dal browser: compare la schermata d'avvio (Chrome con audio già consentito non la mostra)
@@ -2220,7 +3086,7 @@ function startGame(level, lives) {
 
 /* ======================================================================
    AUDIO: musichetta sintetizzata (stile anni '80, rilassante) diversa per ogni stanza + effetti sonori.
-   Tutto generato con WebAudio: nessun file da caricare.  Tasto M = muto / audio.
+   Tutto generato con WebAudio: nessun file da caricare.  L'audio è sempre acceso.
    ====================================================================== */
 const Snd = (() => {
   let ctx = null, master, musicBus, sfxBus, delay, timer = null, track = null, wanted = null, muted = false;
@@ -2310,9 +3176,6 @@ const Snd = (() => {
     if (ctx.state !== 'running') ctx.resume().then(begin).catch(() => {}); else begin();
   }
   ['pointerdown', 'keydown', 'touchstart'].forEach(ev => window.addEventListener(ev, unlock, true));
-  window.addEventListener('keydown', (e) => {
-    if (e.key === 'm' || e.key === 'M') api.setMuted(!Prefs.get().muted);
-  });
   const can = () => ctx && ctx.state === 'running';
 
   const api = {
@@ -2339,7 +3202,13 @@ const Snd = (() => {
     appear() { if (!can()) return; const t = ctx.currentTime;                         // compare una scala: rombo di pietra + colpi + arpeggio ascendente
       noise(t, 1.3, 0.35, sfxBus, 0, [500, 50]);
       [0, 0.2, 0.4, 0.6].forEach(d => noise(t + d, 0.18, 0.22, sfxBus, 0, [1200, 150]));
-      [60, 64, 67, 72, 76, 79].forEach((m, i) => tone('triangle', mtof(m), t + 0.5 + i * 0.11, 0.01, 0.25, 0.7, sfxBus, { send: 0.35 })); }
+      [60, 64, 67, 72, 76, 79].forEach((m, i) => tone('triangle', mtof(m), t + 0.5 + i * 0.11, 0.01, 0.25, 0.7, sfxBus, { send: 0.35 })); },
+    note(m) { if (!can()) return; const t = ctx.currentTime; tone('triangle', mtof(m), t, 0.01, 0.3, 0.9, sfxBus, { send: 0.4 }); tone('sine', mtof(m + 12), t, 0.01, 0.1, 0.7, sfxBus, { send: 0.4 }); },     // nota limpida di un fiore
+    dissonant() { if (!can()) return; const t = ctx.currentTime; tone('sawtooth', mtof(41), t, 0.01, 0.24, 1.0, sfxBus); tone('sawtooth', mtof(47), t, 0.01, 0.22, 1.0, sfxBus); tone('square', mtof(53.5), t, 0.01, 0.1, 0.8, sfxBus); noise(t, 0.45, 0.14, sfxBus, 0, [900, 100]); },   // nota stonata: cupa e dissonante (tritono)
+    triumph() { if (!can()) return; const t = ctx.currentTime;                         // melodia trionfale: arpeggio e accordo finale
+      [72, 76, 79, 84, 88, 91].forEach((m, i) => tone('triangle', mtof(m), t + i * 0.15, 0.01, 0.28, 0.9, sfxBus, { send: 0.45 }));
+      [60, 72, 76, 79, 84].forEach(m => tone('triangle', mtof(m), t + 1.0, 0.03, 0.26, 2.2, sfxBus, { send: 0.55 })); },
+    pickup() { if (!can()) return; const t = ctx.currentTime; [84, 88, 91].forEach((m, i) => tone('triangle', mtof(m), t + i * 0.07, 0.005, 0.2, 0.3, sfxBus, { send: 0.3 })); }
   };
   return api;
 })();
@@ -2353,6 +3222,28 @@ class BootScene extends Phaser.Scene {
     if (window.__pendingGame) { const pg = window.__pendingGame; window.__pendingGame = null; window.beginGame(pg.level, pg.lives); }
   }
 }
+
+/* ===== SCHERMO INTERO: i browser lo permettono solo dopo un gesto dell'utente, quindi parte al primo clic o tasto
+   (di solito "Inizia l'avventura" o il primo clic sul video). Una volta dentro, con Esc si esce e non viene più forzato.
+   Per disattivarlo: aggiungi ?fullscreen=0 all'indirizzo. ===== */
+(() => {
+  if (new URLSearchParams(location.search).get('fullscreen') === '0') return;
+  const el = document.documentElement;
+  if (!el.requestFullscreen) return;
+  const EV = ['pointerdown', 'mousedown', 'touchend', 'keydown', 'click'];
+  let pending = false;
+  const off = () => EV.forEach(ev => document.removeEventListener(ev, go, true));
+  function go(e) {
+    if (pending) return;
+    if (e.type === 'keydown' && (e.key === 'Escape' || e.key === 'F11')) return;
+    if (document.fullscreenElement) { off(); return; }
+    pending = true;
+    let p;
+    try { p = el.requestFullscreen({ navigationUI: 'hide' }); } catch (err) { pending = false; return; }
+    Promise.resolve(p).then(off, () => { pending = false; });    // se il browser rifiuta, riprova al gesto successivo
+  }
+  EV.forEach(ev => document.addEventListener(ev, go, true));
+})();
 
 new Phaser.Game({
   type: Phaser.AUTO,
