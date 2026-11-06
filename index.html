@@ -901,8 +901,10 @@ const Prefs = (() => {
 const BWORDS = [
   ['luce', 'ombra', 'porta', 'torcia', 'libro', 'penna', 'carta', 'fiamma', 'notte', 'sogno', 'vento', 'pietra', 'chiave', 'corvo', 'stella', 'sciarpa', 'goccia', 'spada', 'muro', 'fumo', 'cuore', 'occhio', 'lampo', 'eco'],
   ['inchiostro', 'castello', 'tenebre', 'pagina', 'corridoio', 'scintilla', 'mistero', 'silenzio', 'tempesta', 'racconto', 'fantasma', 'candela', 'cavaliere', 'serratura', 'labirinto', 'incantesimo', 'pergamena', 'calamaio', 'tesoro', 'sussurro', 'ragnatela', 'prigione', 'cristallo', 'tramonto'],
-  ['goccia nera', 'occhi aperti', 'notte fonda', 'corvo muto', 'mostro vuoto', 'luce fioca', 'passo lento', 'vento freddo', 'porta chiusa', 'cuore forte', 'penna blu', 'ombra lunga', 'torcia accesa', 'libro antico', 'sala buia', 'mano ferma', 'trono vuoto', 'vecchia chiave', 'sogno strano', 'fumo nero'],
-  ['il blu vince', 'spezza il buio', 'ultima pagina', 'scrivi forte', 'luce nel vuoto', 'non ho paura', 'la storia continua', 'inchiostro vivo', 'accendi la luce', 'il mostro cade', 'scacciare le ombre', 'una nuova pagina', 'il coraggio vince', 'cade la notte', 'fine del buio', 'l ultima goccia', 'il libro si apre', 'resisti ancora', 'colpisci il vuoto', 'torna la luce']
+  ['goccia nera', 'occhi aperti', 'notte fonda', 'corvo muto', 'mostro vuoto', 'luce fioca', 'passo lento', 'vento freddo', 'porta chiusa', 'cuore forte', 'penna blu', 'ombra lunga', 'torcia accesa', 'libro antico', 'sala buia', 'mano ferma', 'trono vuoto', 'vecchia chiave', 'sogno strano', 'fumo nero',
+   'cattedrale', 'tentacolo', 'sentinella', 'vortice', 'crepuscolo', 'catena', 'abisso', 'armatura', 'lanterna', 'scheletro', 'tormenta', 'sotterraneo', 'brivido', 'incubo', 'meandro', 'bagliore', 'rintocco'],   // ondata 3: frasi di due parole mescolate a parole singole
+  ['il blu vince', 'spezza il buio', 'ultima pagina', 'scrivi forte', 'luce nel vuoto', 'non ho paura', 'la storia continua', 'inchiostro vivo', 'accendi la luce', 'il mostro cade', 'scacciare le ombre', 'una nuova pagina', 'il coraggio vince', 'cade la notte', 'fine del buio', 'l ultima goccia', 'il libro si apre', 'resisti ancora', 'colpisci il vuoto', 'torna la luce',
+   'oscurita', 'splendore', 'eternita', 'tempestoso', 'cacciatore', 'guardiano', 'risveglio', 'imprigionato', 'scintillante', 'sprofondare', 'attraversare', 'resistenza', 'speranza', 'vendetta', 'incantato', 'definitivo']   // ondata 4: frasi lunghe mescolate a parole singole lunghe
 ];
 const BCOLS = [[12, 12, 18], [14, 24, 70], [18, 48, 140], [24, 92, 210], [50, 140, 255]];            // le 5 fasi: dal nero al Profondo Blu
 const BOSSBOX = { ox: -315, oy: -214, w: 598, h: 468 };                                  // ritaglio del mostro (px dell'immagine 1377) rispetto al centro (890,250)
@@ -1209,7 +1211,7 @@ class LevelScene extends Phaser.Scene {
     B.hx = 330 * K; B.hxT = B.HX;                                         // l'omino entra correndo dalla porta
     const first = !LevelScene.helpSeen[9]; LevelScene.helpSeen[9] = true;                // istruzioni solo la prima volta; se si rigioca partono prima
     if (first) this.bossHelp(); else this.bossMsg('IL MOSTRO DEI VUOTI', 2000);
-    this.time.delayedCall(first ? 6300 : 2300, () => this.bossWave());
+    this.time.delayedCall(first ? 8400 : 2300, () => this.bossWave());
   }
 
   introPanel(o) {                                                      // finestra con le istruzioni a inizio livello: il gioco resta fermo finché non premi un tasto o clicchi
@@ -1229,13 +1231,14 @@ class LevelScene extends Phaser.Scene {
 
   bossHelp() {                                                         // istruzioni a inizio livello
     const c = this.add.container(W / 2, 430).setDepth(70).setAlpha(0), bg = this.add.graphics();
-    bg.fillStyle(0xf6e9cf, 0.96); bg.fillRoundedRect(-960, -230, 1920, 470, 30); bg.lineStyle(6, 0x2a1d14, 1); bg.strokeRoundedRect(-960, -230, 1920, 470, 30);
+    bg.fillStyle(0xf6e9cf, 0.96); bg.fillRoundedRect(-960, -290, 1920, 580, 30); bg.lineStyle(6, 0x2a1d14, 1); bg.strokeRoundedRect(-960, -290, 1920, 580, 30);
     const tx = (y, str, sz, col, bold) => this.add.text(0, y, str, { fontFamily: 'Georgia, serif', fontStyle: bold ? 'italic bold' : 'normal', fontSize: sz + 'px', color: col, align: 'center', wordWrap: { width: 1800 } }).setOrigin(0.5);
-    c.add([bg, tx(-165, 'IL MOSTRO DEI VUOTI', 72, '#15217a', true),
-      tx(-50, '1.  SCRIVI con la tastiera le parole dei fumetti\nper distruggere i mostri prima che ti raggiungano', 52, '#2a1d14'),
-      tx(110, '2.  Quando il boss crolla a terra:\nCLIC SINISTRO del mouse per sparargli l’inchiostro blu', 52, '#2a1d14')]);
+    c.add([bg, tx(-225, 'IL MOSTRO DEI VUOTI', 72, '#15217a', true),
+      tx(-105, '1.  SCRIVI con la tastiera le parole dei fumetti\nper distruggere i mostri prima che ti raggiungano', 50, '#2a1d14'),
+      tx(30, '2.  Hai sbagliato frase? Premi BACKSPACE (la freccia ←)\nper lasciare quel mostro e scriverne un altro', 50, '#2a1d14'),
+      tx(170, '3.  Quando il boss crolla a terra:\nCLIC SINISTRO del mouse per sparargli l’inchiostro blu', 50, '#2a1d14')]);
     this.tweens.add({ targets: c, alpha: 1, duration: 350 });
-    this.tweens.add({ targets: c, alpha: 0, delay: 5600, duration: 600, onComplete: () => c.destroy() });
+    this.tweens.add({ targets: c, alpha: 0, delay: 7600, duration: 600, onComplete: () => c.destroy() });
   }
 
   bossMsg(s, ms) {
@@ -1287,6 +1290,7 @@ class LevelScene extends Phaser.Scene {
   bossKey(e) {
     const B = this.bs; if (!B || this.dead || this.restarting) return;
     const k = e.key;
+    if (k === 'Backspace' && B.ph === 'def') { e.preventDefault(); if (B.target) { B.target.n = 0; B.target = null; } return; }      // Backspace: lascia il mostro e scegli un'altra frase
     if (B.ph === 'vuln' && (k === ' ' || k === 'Enter')) { this.bossThrow(); return; }
     if (B.ph !== 'def' || k.length !== 1 || e.ctrlKey || e.metaKey || e.altKey) return;
     const c = k.toLowerCase(); let m = B.target;
