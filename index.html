@@ -907,6 +907,8 @@ const BWORDS = [
    'oscurita', 'splendore', 'eternita', 'tempestoso', 'cacciatore', 'guardiano', 'risveglio', 'imprigionato', 'scintillante', 'sprofondare', 'attraversare', 'resistenza', 'speranza', 'vendetta', 'incantato', 'definitivo']   // ondata 4: frasi lunghe mescolate a parole singole lunghe
 ];
 const BCOLS = [[12, 12, 18], [14, 24, 70], [18, 48, 140], [24, 92, 210], [50, 140, 255]];            // le 5 fasi: dal nero al Profondo Blu
+const FERMO = [[0,0,351,355,169,354],[361,0,356,355,173,354],[727,0,356,355,174,354],[1093,0,355,355,171,354],[1458,0,356,355,175,354]];                 // fotogrammi dritti da fermo (assets/eroe_fermo.png): [x,y,w,h,piediX,piediY]
+const FHAND = [[277.0,155.25],[306.0,155.25],[306.0,155.25],[305.0,155.25],[282.0,155.25]];               // posizione della manina che regge la torcia in ogni fotogramma
 const BOSSBOX = { ox: -315, oy: -214, w: 598, h: 468 };                                  // ritaglio del mostro (px dell'immagine 1377) rispetto al centro (890,250)
 const BOSSEYES = [{x:135.2,y:-61.1,r:4.6,tx:8.0,ty:2.2},{x:-8.1,y:5.5,r:8.1,tx:10.2,ty:7.8},{x:145.6,y:1.4,r:7.6,tx:6.2,ty:2.6},{x:-70.8,y:12.0,r:5.4,tx:6.3,ty:5.2},{x:79.2,y:49.3,r:6.1,tx:5.7,ty:2.2},{x:-6.9,y:78.8,r:5.0,tx:10.8,ty:2.2}];   // pupille mobili
 const BEYES = [[-30, -20, 1], [10, -35, 1.2], [40, -10, 1], [-5, 0, 1.4], [-45, 15, .8], [25, 22, 1], [-15, 35, .9], [55, -40, .7], [-60, -30, .7]];
@@ -927,7 +929,7 @@ class LevelScene extends Phaser.Scene {
     if (this.cfg.funnel) this.load.image('crate3', this.cfg.funnel.crate.file);
     if (this.cfg.sprites) Object.values(this.cfg.sprites).forEach(sp => (sp.frameWidth ? this.load.spritesheet(sp.key, sp.file, { frameWidth: sp.frameWidth, frameHeight: sp.frameHeight }) : this.load.image(sp.key, sp.file)));
     this.load.image('runbody', 'player_corsa_corpo.png');
-    if (this.cfg.boss) this.load.image('torcia', 'torcia.png');
+    if (this.cfg.boss) { this.load.image('torcia', 'torcia.png'); this.load.image('eroe9', 'eroe_fermo.png'); }
     if (this.cfg.boss) for (let i = 0; i < 5; i++) { this.load.image('bossb' + i, 'boss_body' + i + '.png'); this.load.image('bosst' + i, 'boss_tent' + i + '.png'); }   // mostro: 5 fasi dal nero al blu
     this.load.image('enemy_blob', 'enemy_blob.png');
     this.load.image('enemy_crow', 'enemy_crow.png');
@@ -1187,6 +1189,7 @@ class LevelScene extends Phaser.Scene {
     const rb = this.textures.get('runbody');
     if (!rb.has('runb0')) RUNBODY.forEach((d, i) => { const f = rb.add('runb' + i, 0, d[0], d[1], d[2], d[3]); f.customPivot = true; f.pivotX = d[4]; f.pivotY = 1; });
     this.legG = this.add.graphics().setDepth(9.5);
+    const ef = this.textures.get('eroe9'); FERMO.forEach((d, i) => { if (!ef.has('f' + i)) ef.add('f' + i, 0, d[0], d[1], d[2], d[3]); });
     this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.2).setDepth(1);               // sala un po' più buia: la torcia fa luce
     this.player = this.add.sprite(B.hx, B.FL, 'player', 'idle0').setScale(0.54).setDepth(10);
     this.setPlayerFrame('idle0');
@@ -1208,7 +1211,7 @@ class LevelScene extends Phaser.Scene {
     kb.on('keydown', (e) => this.bossKey(e));
     this.input.on('pointerdown', (ptr) => { if (ptr.leftButtonDown()) this.bossThrow(); });
     this.cameras.main.fadeIn(350);
-    B.hx = 330 * K; B.hxT = B.HX;                                         // l'omino entra correndo dalla porta
+    B.hx = B.HX; B.hxT = B.HX;                                            // l'omino sta sempre fermo al suo posto
     const first = !LevelScene.helpSeen[9]; LevelScene.helpSeen[9] = true;                // istruzioni solo la prima volta; se si rigioca partono prima
     if (first) this.bossHelp(); else this.bossMsg('IL MOSTRO DEI VUOTI', 2000);
     this.time.delayedCall(first ? 8400 : 2300, () => this.bossWave());
@@ -1356,7 +1359,7 @@ class LevelScene extends Phaser.Scene {
         }
       }
       if (live && !this.dead && B.spawned >= B.count && !B.mins.some(m => !m.dying)) {   // ondata finita: il boss crolla
-        B.ph = 'vuln'; B.tx = 880 * K; B.ty = 425 * K; this.ink = Math.max(this.ink, 66); B.hits = 0; B.hxT = B.HX + 220 * K; this.cameras.main.shake(500, 0.008);
+        B.ph = 'vuln'; B.tx = 880 * K; B.ty = 425 * K; this.ink = Math.max(this.ink, 66); B.hits = 0; this.cameras.main.shake(500, 0.008);
         this.bossMsg('COLPISCILO!\nCLIC SINISTRO del mouse per sparare l’inchiostro', 3200);
       }
     } else if (live && B.ph === 'vuln') {
@@ -1398,16 +1401,17 @@ class LevelScene extends Phaser.Scene {
   drawBossFx() {
     const B = this.bs, K = B.K, g = this.fxG, t = B.t; g.clear();
     // ---- omino: corre quando si sposta (corpo + gambe del gioco), altrimenti respira; torcia con fiamma che vibra e luce ----
-    const sc = 0.54, k = sc / C.scale, f = B.face, moving = Math.abs(B.hxT - B.hx) > 2, TAU = Math.PI * 2;
-    let hipY = B.FL - 33.6 * k, fi;
-    if (moving) { B.run = (B.run + B.dt * TAU * 3.8) % TAU; hipY -= Math.abs(Math.sin(B.run)) * 4 * k; fi = Math.floor(B.run / TAU * 6) % 6; this.drawLegs(B.hx, B.FL, hipY, B.run, f, k); }
-    else { fi = [1, 3, 4, 5, 4, 3][Math.floor(t * 3.2) % 6]; this.drawLegs(B.hx, B.FL, hipY, 0, f, k); }   // fermo: fotogrammi col braccio piegato che regge la torcia
-    this.setPlayerFrame('runb' + fi);
-    this.player.setPosition(B.hx, hipY).setFlipX(f < 0).setRotation(moving ? 0.06 * f : 0).setScale(sc * (1 + B.throwT * 0.12), sc);
+    const sc = 0.54, k = sc / C.scale, f = 1, moving = Math.abs(B.hxT - B.hx) > 2, TAU = Math.PI * 2;
+    let hipY = B.FL - 33.6 * k, hd;                                  // hd = [spostamento x, y assoluta] della mano che regge la torcia
     const blink = this.invT > 0 && Math.floor(t * 12) % 2 === 1;
+    {                                                                  // SEMPRE lo stesso fotogramma dritto (il 3°), sia fermo sia quando si sposta: niente movimento, rivolto verso il boss
+      const fd = FERMO[2];
+      this.curFrame = ''; this.legG.clear();
+      this.player.setTexture('eroe9', 'f2').setOrigin(fd[4] / fd[2], fd[5] / fd[3]).setPosition(B.hx, B.FL).setFlipX(false).setRotation(0).setScale(sc);
+      hd = [(FHAND[2][0] - fd[4]) * sc, B.FL + (FHAND[2][1] - fd[5]) * sc];
+    }
     this.player.setAlpha(blink ? 0.35 : 1); this.legG.setAlpha(blink ? 0.35 : 1);
-    const RH = [[262, 177], [262, 177], [279, 171], [280, 165], [300, 150], [287, 151]], rd = RUNBODY[fi], hl = RH[fi];   // posizione della manina in ogni fotogramma
-    const hx = B.hx + f * ((hl[0] - rd[4] * rd[2]) * sc + 12), hy = hipY + (hl[1] - rd[3]) * sc, fk = 1 + Math.sin(t * 23) * 0.035 + Math.sin(t * 37) * 0.02;
+    const hx = B.hx + f * (hd[0] + 12), hy = hd[1], fk = 1 + Math.sin(t * 23) * 0.035 + Math.sin(t * 37) * 0.02;
     this.torch.setPosition(hx, hy).setScale(0.56 * fk, 0.56 * (1 + Math.sin(t * 31 + 1) * 0.05)).setRotation(f * 0.42 + Math.sin(t * 9) * 0.05);          // torcia inclinata in avanti, lontana dal viso
     const fx = hx + Math.sin(this.torch.rotation) * 105, fy = hy - Math.cos(this.torch.rotation) * 105, fl = 0.85 + Math.sin(t * 23) * 0.08 + Math.sin(t * 41) * 0.06 + Math.random() * 0.04;
     this.gl[0].setPosition(fx, fy).setScale(1100 / 256 * fl).setAlpha(0.34);          // luce ampia sulla stanza
