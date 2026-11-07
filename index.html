@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/icon-192.png">
+<meta name="theme-color" content="#17120e">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -10,7 +13,8 @@
 <title>BLUE INK STORY</title>
 <style>
   html, body { margin: 0; height: 100%; background: #17120e; overflow: hidden; }
-  #game { width: 100vw; height: 100vh; height: 100dvh; display: flex; align-items: center; justify-content: center; }
+  #bgfill { position: fixed; inset: -6%; z-index: 0; background-size: cover; background-position: center; filter: blur(22px) brightness(.55); opacity: 0; transition: opacity .5s; pointer-events: none; }   /* ai lati del gioco: l'arte del livello sfocata invece del nero */
+  #game { position: relative; z-index: 1; width: 100vw; height: 100vh; height: 100dvh; display: flex; align-items: center; justify-content: center; }
   canvas { display: block; }
   #introWrap { position: fixed; inset: 0; z-index: 9; display: flex; align-items: center; justify-content: center; background: #000; font-family: Georgia, serif; }
   #vbox { position: relative; width: min(100vw, calc(100vh * 16 / 9)); width: min(100vw, calc(100dvh * 16 / 9)); aspect-ratio: 16 / 9; }
@@ -76,6 +80,7 @@
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
 </head>
 <body>
+<div id="bgfill"></div>
 <div id="game"></div>
 <div id="introWrap">
   <div id="vbox">
@@ -107,6 +112,7 @@
 <script>
 /* ===== COMANDI TOUCH (telefono / tablet): pulsanti a schermo che mandano gli stessi tasti della tastiera; nel boss, tastiera a schermo.
    Compaiono solo su dispositivi touch (o con ?touch=1 nell'indirizzo) e solo dentro i livelli. ===== */
+try { if ('serviceWorker' in navigator && /^https?:/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (_) {}      // permette "Installa app" (schermo intero vero)
 try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (_) {}      // iPhone: l'audio del gioco suona anche con la levetta del silenzioso
 window.TouchUI = (() => {
   const q = new URLSearchParams(location.search);
@@ -1036,7 +1042,8 @@ class LevelScene extends Phaser.Scene {
   create() {
     const cfg = this.cfg;
     Snd.music(cfg.id);
-    if (window.TouchUI) TouchUI.set(cfg.boss ? 'boss' : cfg.ascent ? 'ascent' : 'play');       // comandi touch (solo su telefono/tablet)
+    if (window.TouchUI) TouchUI.set(cfg.boss ? 'boss' : cfg.ascent ? 'ascent' : 'play');
+    { const bf = document.getElementById('bgfill'); if (bf) { bf.style.backgroundImage = cfg.file ? "url('assets/" + cfg.file + "')" : ''; bf.style.opacity = cfg.file ? '1' : '0'; } }       // comandi touch (solo su telefono/tablet)
     Save.set({ level: cfg.id, lives: this.startLives });   // checkpoint: inizio stanza
     // la scena viene riusata passando da una stanza all'altra: azzero tutto lo stato della stanza precedente
     this.entered = false; this.safeHist = []; this.safeT = 0; this.levs = null; this.crate = null; this.fl = null; this.gateOpen = false; this.doorOpened = false; this.pushT = 0; this.ss = null; this.fn = null; this.lever = null; this.ramp = null; this.pitG = null; this.hudG = null;
@@ -1464,7 +1471,10 @@ class LevelScene extends Phaser.Scene {
         const dx = B.bx - s.x, dy = B.by - s.y, d = Math.hypot(dx, dy);
         if (d < 230) {
           B.shots.splice(B.shots.indexOf(s), 1); B.hp = Math.max(0, B.hp - 5); B.hits++; B.flash = 0.3; this.cameras.main.shake(200, 0.006); this.bossFx(s.x, s.y, 22, INK.edge); Snd.splash();
-          if (B.hp <= 0) { B.ph = 'win'; B.winT = 0; } else if (B.hits >= 5) { B.ph = 'rise'; B.rt = 1.8; B.hxT = B.HX; B.tx = 890 * K; B.ty = 250 * K; B.wave++; }
+          if (B.hp <= 0) { B.ph = 'win'; B.winT = 0; } else if (B.hits >= 5) {
+            B.ph = 'rise'; B.rt = 1.8; B.hxT = B.HX; B.tx = 890 * K; B.ty = 250 * K; B.wave++;
+            if (this.lives < 4) { this.lives++; this.drawHearts(); this.bossMsg('+1 CUORE', 1700); Snd.ink(); }      // ristoro: dopo ogni crollo del boss si recupera un cuore
+          }
         } else { s.x += dx / d * 2200 * dt; s.y += dy / d * 2200 * dt; }
       }
     } else if (live && B.ph === 'rise') { B.rt -= dt; if (B.rt <= 0) this.bossWave(); }
@@ -3158,6 +3168,7 @@ function startGame(level, lives) {
   window.showMenu = () => {
     gameStarted = false; menuReady = false; closePanel(); v.pause();
     if (window.TouchUI) TouchUI.set(null);
+    { const bf = document.getElementById('bgfill'); if (bf) bf.style.opacity = '0'; }
     menu.classList.remove('on');
     wrap.style.display = 'flex'; wrap.style.opacity = '0';
     requestAnimationFrame(() => { fit(); menuOn(); wrap.style.opacity = '1'; });
@@ -3378,6 +3389,14 @@ class BootScene extends Phaser.Scene {
     let p;
     try { p = el.requestFullscreen({ navigationUI: 'hide' }); } catch (err) { pending = false; return; }
     Promise.resolve(p).then(() => { pending = false; off(); try { if (window.TouchUI && TouchUI.touch && screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); } catch (_) {} },   /* su Android blocca il telefono in orizzontale */ () => { pending = false; });    // se il browser rifiuta, riprova al gesto successivo
+  }
+  if (window.TouchUI && TouchUI.touch) {                              // pulsante di riserva: resta finché non si è a schermo intero
+    const fb = document.createElement('div'); fb.textContent = '⛶ schermo intero';
+    fb.style.cssText = 'position:fixed;left:50%;bottom:6px;transform:translateX(-50%);z-index:45;padding:6px 14px;font:16px Georgia,serif;color:#f6e9cf;background:rgba(0,0,0,.6);border:1px solid rgba(246,233,207,.5);border-radius:10px;display:none';
+    document.body.appendChild(fb);
+    const upd = () => { fb.style.display = (document.fullscreenElement || window.__noFs) ? 'none' : 'block'; };
+    document.addEventListener('fullscreenchange', upd); upd();
+    fb.addEventListener('click', () => setTimeout(() => { if (!document.fullscreenElement) { fb.textContent = 'Non disponibile: apri con Chrome o usa “Installa app”'; } }, 700));
   }
   document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) arm(); });   // uscito dallo schermo intero: al prossimo gesto si rientra
   arm();
