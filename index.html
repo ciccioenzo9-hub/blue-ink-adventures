@@ -2,14 +2,18 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Blue Ink Story">
 <title>BLUE INK STORY</title>
 <style>
   html, body { margin: 0; height: 100%; background: #17120e; overflow: hidden; }
-  #game { width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; }
+  #game { width: 100vw; height: 100vh; height: 100dvh; display: flex; align-items: center; justify-content: center; }
   canvas { display: block; }
   #introWrap { position: fixed; inset: 0; z-index: 9; display: flex; align-items: center; justify-content: center; background: #000; font-family: Georgia, serif; }
-  #vbox { position: relative; width: min(100vw, calc(100vh * 16 / 9)); aspect-ratio: 16 / 9; }
+  #vbox { position: relative; width: min(100vw, calc(100vh * 16 / 9)); width: min(100vw, calc(100dvh * 16 / 9)); aspect-ratio: 16 / 9; }
   #introVideo { width: 100%; height: 100%; display: block; background: #000; }
   /* ===== MENU DEL LIBRO (assets/menu.jpg): immagine + aree cliccabili in % dell'immagine 2576x1438 ===== */
   #menu { position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity .7s ease; --u: 12px; font-family: Georgia, serif; }
@@ -101,6 +105,82 @@
 <div id="fatal"><div id="fatal-msg"></div></div>
 
 <script>
+/* ===== COMANDI TOUCH (telefono / tablet): pulsanti a schermo che mandano gli stessi tasti della tastiera; nel boss, tastiera a schermo.
+   Compaiono solo su dispositivi touch (o con ?touch=1 nell'indirizzo) e solo dentro i livelli. ===== */
+try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (_) {}      // iPhone: l'audio del gioco suona anche con la levetta del silenzioso
+window.TouchUI = (() => {
+  const q = new URLSearchParams(location.search);
+  const coarse = matchMedia('(hover: none) and (pointer: coarse)').matches || q.get('touch') === '1';
+  if (!coarse) return { set() {}, touch: false };
+  const css = document.createElement('style');
+  css.textContent = `
+    #touch, #touch * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: none; box-sizing: border-box; }
+    #touch { position: fixed; inset: 0; z-index: 30; pointer-events: none; font-family: Georgia, serif; --b: clamp(40px, 12vmin, 78px); }
+    #touch .g { display: none; position: absolute; gap: calc(var(--b) * .22); pointer-events: none; }
+    #touch[data-k=play] .p, #touch[data-k=ascent] .p, #touch[data-k=play] .pl, #touch[data-k=boss] .bo { display: flex; }
+    #touch .tb { pointer-events: auto; width: var(--b); height: var(--b); border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-size: calc(var(--b) * .46); color: #2a1d14; background: rgba(246,233,207,.55); border: 3px solid rgba(42,29,20,.75); box-shadow: 0 2px 8px rgba(0,0,0,.35); }
+    #touch .tb.on { background: rgba(246,233,207,.95); transform: scale(.94); }
+    #touch[data-k=play] .cl, #touch[data-k=ascent] .cl { display: grid; grid-template-columns: repeat(3, var(--b)); grid-auto-rows: var(--b); gap: calc(var(--b) * .1); }
+    #touch .cl { left: max(3.5vmin, env(safe-area-inset-left, 0px)); bottom: max(4vmin, env(safe-area-inset-bottom, 0px)); }
+    #touch .cr { right: max(3.5vmin, env(safe-area-inset-right, 0px)); bottom: max(4vmin, env(safe-area-inset-bottom, 0px)); flex-direction: row; align-items: flex-end; }
+    #touch .cx { right: max(3vmin, env(safe-area-inset-right, 0px)); top: max(3vmin, env(safe-area-inset-top, 0px)); }
+    #touch .cx .tb { width: calc(var(--b) * .6); height: calc(var(--b) * .6); font-size: calc(var(--b) * .3); }
+    #touch .kb { left: 0; right: 0; bottom: 0; flex-direction: column; align-items: center; justify-content: center; gap: 1.1vh; padding: 1vh 1.5vw; background: rgba(23,18,14,.94); }
+    #touch .kr { display: flex; gap: .9vw; width: 100%; justify-content: center; }
+    #touch .kk { pointer-events: auto; flex: 0 0 auto; width: 8.2vw; height: calc(var(--kh) * .2); border-radius: 8px; display: flex; align-items: center; justify-content: center;
+      font: 600 calc(var(--kh) * .12)/1 Georgia, serif; color: #f6e9cf; background: rgba(246,233,207,.16); border: 2px solid rgba(246,233,207,.35); }
+    #touch .kk.on { background: rgba(246,233,207,.75); color: #2a1d14; }
+    #touch .kk.w { width: 12vw; } #touch .kk.sp { width: 44vw; } #touch .kk.go { width: 20vw; background: rgba(214,40,40,.55); border-color: rgba(255,200,200,.7); }
+    #rot { display: none; position: fixed; inset: 0; z-index: 60; background: #17120e; color: #f6e9cf; align-items: center; justify-content: center; text-align: center; font: italic 28px/1.5 Georgia, serif; padding: 24px; }
+    @media (orientation: portrait) { #rot { display: flex; } }`;
+  document.head.appendChild(css);
+  const rot = document.createElement('div'); rot.id = 'rot'; rot.innerHTML = '<div>Gira il telefono in orizzontale<br><span style="font-size:20px;opacity:.7">il gioco si vede e si gioca meglio</span></div>'; document.body.appendChild(rot);
+  const root = document.createElement('div'); root.id = 'touch'; document.body.appendChild(root);
+  const KC = { ArrowLeft: 37, ArrowUp: 38, ArrowRight: 39, ArrowDown: 40, ' ': 32, e: 69, r: 82, Enter: 13, Backspace: 8 };
+  const fire = (type, key) => {                                       // tasto "finto": il gioco lo legge come uno vero della tastiera
+    const kc = KC[key] != null ? KC[key] : (key.length === 1 ? key.toUpperCase().charCodeAt(0) : 0);
+    const ev = new KeyboardEvent(type, { key, bubbles: true, cancelable: true });
+    Object.defineProperty(ev, 'keyCode', { get: () => kc }); Object.defineProperty(ev, 'which', { get: () => kc });
+    window.dispatchEvent(ev);
+  };
+  const hold = (el, keys) => {                                       // pulsante tenuto premuto = tasto tenuto premuto
+    let down = false;
+    const on = (e) => { e.preventDefault(); if (down) return; down = true; el.classList.add('on'); try { el.setPointerCapture(e.pointerId); } catch (_) {} keys.forEach(k => fire('keydown', k)); };
+    const off = (e) => { if (!down) return; down = false; el.classList.remove('on'); keys.forEach(k => fire('keyup', k)); };
+    el.addEventListener('pointerdown', on); el.addEventListener('pointerup', off); el.addEventListener('pointercancel', off); el.addEventListener('lostpointercapture', off);
+  };
+  const tap = (el, key) => {                                         // pulsante a tocco singolo (tastiera, riavvia)
+    el.addEventListener('pointerdown', (e) => { e.preventDefault(); el.classList.add('on'); fire('keydown', key); setTimeout(() => fire('keyup', key), 60); });
+    const off = () => el.classList.remove('on'); el.addEventListener('pointerup', off); el.addEventListener('pointercancel', off); el.addEventListener('pointerleave', off);
+  };
+  const mk = (cls, parent) => { const d = document.createElement('div'); d.className = 'g ' + cls; (parent || root).appendChild(d); return d; };
+  const btn = (parent, txt, cls) => { const b = document.createElement('div'); b.className = cls || 'tb'; b.textContent = txt; parent.appendChild(b); return b; };
+  const cl = mk('cl p'), cr = mk('cr pl'), cx = mk('cx pl');
+  const gap = () => cl.appendChild(document.createElement('div'));    // frecce come sulla tastiera del PC: ▲ sopra, ◀ ▼ ▶ sotto
+  gap(); hold(btn(cl, '▲'), ['ArrowUp', ' ']); gap();                  // ▲ = salto (e arrampicata)
+  hold(btn(cl, '◀'), ['ArrowLeft']); hold(btn(cl, '▼'), ['ArrowDown']); hold(btn(cl, '▶'), ['ArrowRight']);
+  const lever = btn(cr, 'E'); tap(lever, 'e');                         // E dall'altra parte (solo nei livelli di piattaforma)
+  tap(btn(cx, '↻'), 'r');
+  const kb = mk('kb bo');
+  ['qwertyuiop', 'asdfghjkl', 'zxcvbnm'].forEach((row, i) => {
+    const r = document.createElement('div'); r.className = 'kr'; kb.appendChild(r);
+    [...row].forEach(ch => tap(btn(r, ch, 'kk'), ch));
+    if (i === 2) tap(btn(r, '⌫', 'kk w'), 'Backspace');
+  });
+  const last = document.createElement('div'); last.className = 'kr'; kb.appendChild(last);
+  tap(btn(last, 'spazio', 'kk sp'), ' '); tap(btn(last, 'SPARA', 'kk go'), 'Enter');
+  let kind = null;
+  const layout = () => {
+    const cv = document.querySelector('#game canvas'); if (!cv) return;
+    const kh = Math.round(innerHeight * 0.4); kb.style.setProperty('--kh', kh + 'px'); kb.style.height = kh + 'px';
+    if (kind === 'boss') { cv.style.transformOrigin = '50% 0'; cv.style.transform = 'scale(' + ((innerHeight - kh) / innerHeight).toFixed(3) + ')'; }   // il gioco si rimpicciolisce e lascia posto alla tastiera
+    else cv.style.transform = '';
+  };
+  addEventListener('resize', layout); addEventListener('orientationchange', () => setTimeout(layout, 300));
+  return { touch: true, set(k) { kind = k; root.dataset.k = k || ''; layout(); } };
+})();
+
 /* ======================================================================
    LOGICA PURA (nessuna dipendenza da Phaser) – coordinate in pixel dello
    sfondo originale 2752 x 1536.
@@ -941,6 +1021,7 @@ class LevelScene extends Phaser.Scene {
   create() {
     const cfg = this.cfg;
     Snd.music(cfg.id);
+    if (window.TouchUI) TouchUI.set(cfg.boss ? 'boss' : cfg.ascent ? 'ascent' : 'play');       // comandi touch (solo su telefono/tablet)
     Save.set({ level: cfg.id, lives: this.startLives });   // checkpoint: inizio stanza
     // la scena viene riusata passando da una stanza all'altra: azzero tutto lo stato della stanza precedente
     this.entered = false; this.safeHist = []; this.safeT = 0; this.levs = null; this.crate = null; this.fl = null; this.gateOpen = false; this.doorOpened = false; this.pushT = 0; this.ss = null; this.fn = null; this.lever = null; this.ramp = null; this.pitG = null; this.hudG = null;
@@ -1237,9 +1318,9 @@ class LevelScene extends Phaser.Scene {
     bg.fillStyle(0xf6e9cf, 0.96); bg.fillRoundedRect(-960, -290, 1920, 580, 30); bg.lineStyle(6, 0x2a1d14, 1); bg.strokeRoundedRect(-960, -290, 1920, 580, 30);
     const tx = (y, str, sz, col, bold) => this.add.text(0, y, str, { fontFamily: 'Georgia, serif', fontStyle: bold ? 'italic bold' : 'normal', fontSize: sz + 'px', color: col, align: 'center', wordWrap: { width: 1800 } }).setOrigin(0.5);
     c.add([bg, tx(-225, 'IL MOSTRO DEI VUOTI', 72, '#15217a', true),
-      tx(-105, '1.  SCRIVI con la tastiera le parole dei fumetti\nper distruggere i mostri prima che ti raggiungano', 50, '#2a1d14'),
-      tx(30, '2.  Hai sbagliato frase? Premi BACKSPACE (la freccia ←)\nper lasciare quel mostro e scriverne un altro', 50, '#2a1d14'),
-      tx(170, '3.  Quando il boss crolla a terra:\nCLIC SINISTRO del mouse per sparargli l’inchiostro blu', 50, '#2a1d14')]);
+      tx(-105, '1.  SCRIVI con la ' + (window.TouchUI && TouchUI.touch ? 'tastiera a schermo' : 'tastiera') + ' le parole dei fumetti\nper distruggere i mostri prima che ti raggiungano', 50, '#2a1d14'),
+      tx(30, '2.  Hai sbagliato frase? Premi ' + (window.TouchUI && TouchUI.touch ? '⌫' : 'BACKSPACE (la freccia ←)') + '\nper lasciare quel mostro e scriverne un altro', 50, '#2a1d14'),
+      tx(170, '3.  Quando il boss crolla a terra:\n' + (window.TouchUI && TouchUI.touch ? 'TOCCA lo schermo o premi SPARA' : 'CLIC SINISTRO del mouse') + ' per sparargli l’inchiostro blu', 50, '#2a1d14')]);
     this.tweens.add({ targets: c, alpha: 1, duration: 350 });
     this.tweens.add({ targets: c, alpha: 0, delay: 7600, duration: 600, onComplete: () => c.destroy() });
   }
@@ -1360,7 +1441,7 @@ class LevelScene extends Phaser.Scene {
       }
       if (live && !this.dead && B.spawned >= B.count && !B.mins.some(m => !m.dying)) {   // ondata finita: il boss crolla
         B.ph = 'vuln'; B.tx = 880 * K; B.ty = 425 * K; this.ink = Math.max(this.ink, 66); B.hits = 0; this.cameras.main.shake(500, 0.008);
-        this.bossMsg('COLPISCILO!\nCLIC SINISTRO del mouse per sparare l’inchiostro', 3200);
+        this.bossMsg('COLPISCILO!\n' + (window.TouchUI && TouchUI.touch ? 'TOCCA lo schermo o premi SPARA' : 'CLIC SINISTRO del mouse') + ' per sparare l’inchiostro', 3200);
       }
     } else if (live && B.ph === 'vuln') {
       this.ink = Math.min(C.inkMax, this.ink + 6 * dt);
@@ -1584,6 +1665,7 @@ class LevelScene extends Phaser.Scene {
   playEndVideo(src) {
     if (this.restarting) return;
     this.restarting = true; Snd.stop();
+    if (window.TouchUI) TouchUI.set(null);
     const ov = document.createElement('div');
     ov.style.cssText = 'position:fixed;inset:0;z-index:30;background:#000;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .6s ease';
     const v = document.createElement('video'); v.playsInline = true; v.preload = 'auto';
@@ -3060,6 +3142,7 @@ function startGame(level, lives) {
   // torna al libro con il menu (usato dal game over): niente video, solo l'immagine del menu
   window.showMenu = () => {
     gameStarted = false; menuReady = false; closePanel(); v.pause();
+    if (window.TouchUI) TouchUI.set(null);
     menu.classList.remove('on');
     wrap.style.display = 'flex'; wrap.style.opacity = '0';
     requestAnimationFrame(() => { fit(); menuOn(); wrap.style.opacity = '1'; });
@@ -3267,7 +3350,7 @@ class BootScene extends Phaser.Scene {
     pending = true;
     let p;
     try { p = el.requestFullscreen({ navigationUI: 'hide' }); } catch (err) { pending = false; return; }
-    Promise.resolve(p).then(() => { pending = false; off(); }, () => { pending = false; });    // se il browser rifiuta, riprova al gesto successivo
+    Promise.resolve(p).then(() => { pending = false; off(); try { if (window.TouchUI && TouchUI.touch && screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); } catch (_) {} },   /* su Android blocca il telefono in orizzontale */ () => { pending = false; });    // se il browser rifiuta, riprova al gesto successivo
   }
   document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) arm(); });   // uscito dallo schermo intero: al prossimo gesto si rientra
   arm();
