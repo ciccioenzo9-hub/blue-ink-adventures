@@ -3167,15 +3167,27 @@ function startGame(level, lives) {
   let gestured = false, gating = false;
   const gate = document.getElementById('gate');
   const unmuteNow = () => { applyVideoVol(); um.style.display = 'none'; };
-  const GEST = ['pointerdown', 'mousedown', 'touchstart', 'keydown'];
+  const GEST = ['pointerdown', 'mousedown', 'touchstart', 'touchend', 'pointerup', 'click', 'keydown'];
   const firstGesture = (e) => {
-    if (gestured) return; gestured = true;
+    if (gestured) return;
+    // Sul touch (Android/iPhone) l'inizio del tocco NON basta per sbloccare audio e schermo intero: conta solo il rilascio (touchend/pointerup/click).
+    const touchDown = e && (e.type === 'touchstart' || (e.type === 'pointerdown' && e.pointerType && e.pointerType !== 'mouse'));
+    if (touchDown) { if (gating && e) e.stopPropagation(); return; }
+    gestured = true;
     GEST.forEach(ev => document.removeEventListener(ev, firstGesture, true));
     if (gating) {                                   // schermata d'avvio: il gesto sblocca l'audio e il video parte dall'inizio con il suono
       gating = false; if (e) e.stopPropagation();
       gate.classList.add('hide'); setTimeout(() => { gate.style.display = 'none'; }, 750);
       applyVideoVol(); v.currentTime = 0;
-      const q = v.play(); if (q && q.catch) q.catch(() => { v.muted = true; const r = v.play(); if (r && r.catch) r.catch(() => menuOn()); });
+      const q = v.play(); if (q && q.catch) q.catch(() => {
+        v.muted = true; const r = v.play(); if (r && r.catch) r.catch(() => menuOn());
+        const again = (ev) => {                                       // se il suono è stato rifiutato: al prossimo rilascio/clic/tasto si riattiva
+          if (ev.type === 'touchstart' || (ev.type === 'pointerdown' && ev.pointerType && ev.pointerType !== 'mouse')) return;
+          ['touchend', 'pointerup', 'click', 'mousedown', 'keydown', 'pointerdown', 'touchstart'].forEach(n => document.removeEventListener(n, again, true));
+          applyVideoVol();
+        };
+        ['touchend', 'pointerup', 'click', 'mousedown', 'keydown', 'pointerdown', 'touchstart'].forEach(n => document.addEventListener(n, again, true));
+      });
       return;
     }
     if (v.muted) { unmuteNow(); if (e) e.stopPropagation(); }
