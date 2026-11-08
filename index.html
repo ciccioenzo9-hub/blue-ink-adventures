@@ -235,6 +235,8 @@ const C = {
    door    : zona di vittoria + pannello della porta da aprire (null = nessuna uscita)  */
 const LEVELS = {
   1: {
+    helpIntro: { small: true, title: 'COME SI GIOCA', lines: ['Frecce ← →  corri   ·   Freccia ↑  salta', 'Tieni premuto il mouse e traccia l’inchiostro da una sponda all’altra'],
+      touchLines: ['Leva: corri e salta (in diagonale salti in avanti)', 'Trascina il dito per tracciare l’inchiostro da una sponda all’altra'] },
     id: 1, key: 'bg1', file: 'level1_background.png', name: 'Stanza 1', hud: true, hudPatch: { src: [548, 116] }, heartsPatch: { src: [560, 22] }, next: 2,
     spawn: { x: 190, y: 974 },
     terrain: [
@@ -341,6 +343,7 @@ const LEVELS = {
     id: 4, key: 'bg4', file: 'livello4_sfondo.jpg', name: 'Stanza 4', hud: true, hudPatch: false, heartsPatch: false,
     hudOff: { x: 31, y: -42 }, hudW: 262, hudFont: 32, heartsOff: { x: 125, y: -10 }, heartsStep: 62, heartsScale: 0.85, next: 5,
     spawn: { x: 150 * K, y: 322 * K },
+    idleMonster: { key: 'l4_mostro', file: 'l4_mostro.png', x: 1573, y: 188, ax: 57.8, ay: 84.0, eyes: [{cx:14.6,cy:70.7,rx:3.0,ry:4.5},{cx:39.1,cy:71.3,rx:4.5,ry:5.0}] },   // mostro sull'ingranaggio: respira e muove gli occhi (coordinate sull'immagine 2576 px)
     sprites: {
       cassa: { key: 'l4_cassa', file: 'l4_cassa.png', x: 257, y: 155, w: 221, h: 200 },
       asse:  { key: 'l4_asse', file: 'l4_asse.png', x: 742, y: 759, w: 217, h: 51 },
@@ -1030,6 +1033,7 @@ class LevelScene extends Phaser.Scene {
     if (this.cfg.funnel) this.load.image('crate3', this.cfg.funnel.crate.file);
     if (this.cfg.sprites) Object.values(this.cfg.sprites).forEach(sp => (sp.frameWidth ? this.load.spritesheet(sp.key, sp.file, { frameWidth: sp.frameWidth, frameHeight: sp.frameHeight }) : this.load.image(sp.key, sp.file)));
     this.load.image('runbody', 'player_corsa_corpo.png');
+    if (this.cfg.idleMonster) this.load.image(this.cfg.idleMonster.key, this.cfg.idleMonster.file);
     if (this.cfg.boss) { this.load.image('torcia', 'torcia.png'); this.load.image('eroe9', 'eroe_fermo.png'); }
     if (this.cfg.boss) for (let i = 0; i < 5; i++) { this.load.image('bossb' + i, 'boss_body' + i + '.png'); this.load.image('bosst' + i, 'boss_tent' + i + '.png'); }   // mostro: 5 fasi dal nero al blu
     this.load.image('enemy_blob', 'enemy_blob.png');
@@ -1060,6 +1064,7 @@ class LevelScene extends Phaser.Scene {
     if (cfg.boss) { this.createBoss(); return; }
 
     this.add.image(0, 0, cfg.key).setOrigin(0, 0).setDepth(0);
+    this.buildIdleMonster();
     this.buildPetals();
     if (cfg.hud) this.buildHudPatch();
     if (cfg.door && !cfg.door.noAnim) this.buildDoor();
@@ -1081,6 +1086,7 @@ class LevelScene extends Phaser.Scene {
     if (cfg.pozzo) this.buildPozzo();
     if (cfg.sinfonia) this.buildSinfonia();
     this.buildHint();
+    if (cfg.helpIntro && !LevelScene.helpSeen[cfg.id]) { LevelScene.helpSeen[cfg.id] = true; this.introPanel(cfg.helpIntro); }      // finestra istruzioni: solo la prima volta
 
     this.dbg = this.add.graphics().setDepth(200).setVisible(false);
     this.cameras.main.fadeIn(350);
@@ -1318,21 +1324,46 @@ class LevelScene extends Phaser.Scene {
     const first = !LevelScene.helpSeen[9]; LevelScene.helpSeen[9] = true;                // istruzioni solo la prima volta; se si rigioca partono prima
     if (first) this.bossHelp(); else this.bossMsg('IL MOSTRO DEI VUOTI', 2000);
     this.time.delayedCall(first ? 8400 : 2300, () => this.bossWave());
+    if (QS.get('finale') === '1') this.time.delayedCall(800, () => this.bossEnd());
   }
 
-  introPanel(o) {                                                      // finestra con le istruzioni a inizio livello: il gioco resta fermo finché non premi un tasto o clicchi
-    this.helpOpen = true;
-    const hgt = 150 + o.lines.length * 125 + 110, c = this.add.container(W / 2, H / 2).setDepth(70).setAlpha(0), bg = this.add.graphics();
-    bg.fillStyle(0xf6e9cf, 0.97); bg.fillRoundedRect(-960, -hgt / 2, 1920, hgt, 30); bg.lineStyle(6, 0x2a1d14, 1); bg.strokeRoundedRect(-960, -hgt / 2, 1920, hgt, 30);
-    const tx = (y, str, sz, col, st) => this.add.text(0, y, str, { fontFamily: 'Georgia, serif', fontStyle: st || 'normal', fontSize: sz + 'px', color: col, align: 'center', wordWrap: { width: 1800 } }).setOrigin(0.5);
-    c.add([bg, tx(-hgt / 2 + 90, o.title, 70, '#15217a', 'italic bold'), ...o.lines.map((l, i) => tx(-hgt / 2 + 220 + i * 125, l, 50, '#2a1d14')), tx(hgt / 2 - 60, 'Premi un tasto o clicca per iniziare', 38, '#6b5a47', 'italic')]);
+  buildIdleMonster() {                                                 // mostro fermo sullo sfondo (livello 4): sprite sopra l'originale, che respira e muove gli occhi
+    const m = this.cfg.idleMonster; this.idleMon = null; if (!m) return;
+    const f = this.textures.get(this.cfg.key).getSourceImage().width / 2576;
+    const c = this.add.container((m.x + m.ax) * f, (m.y + m.ay) * f).setDepth(1).setScale(f), g = this.add.graphics();
+    c.add([this.add.image(-m.ax, -m.ay, m.key).setOrigin(0, 0), g]);
+    this.idleMon = { c, g, m, f, t: Math.random() * 6, blink: 0, nextBlink: 1.5 + Math.random() * 2 };
+  }
+
+  updateIdleMonster(dt) {
+    const o = this.idleMon; if (!o) return;
+    o.t += dt; const br = (Math.sin(o.t * 1.5) + 1) / 2;                 // respiro lento: si gonfia e si sgonfia, restando sempre sopra l'originale
+    o.c.setScale(o.f * (1 + 0.012 * br), o.f * (1 + 0.045 * br));
+    o.nextBlink -= dt; if (o.nextBlink <= 0) { o.blink = 0.14; o.nextBlink = 2.2 + Math.random() * 3.5; }
+    let open = 1; if (o.blink > 0) { o.blink -= dt; open = Math.abs(o.blink / 0.14 * 2 - 1); }
+    const look = Math.sin(o.t * 0.7) * 2.2, up = Math.sin(o.t * 0.5) * 0.8, g = o.g; g.clear(); g.fillStyle(0xf4f1e8, 1);
+    o.m.eyes.forEach(e => g.fillEllipse(e.cx - o.m.ax + look, e.cy - o.m.ay + up, e.rx * 2, Math.max(1.2, e.ry * 2 * open)));
+  }
+
+  introPanel(o) {                                                      // finestra con le istruzioni a inizio livello. Grande = il gioco aspetta; "small" = piccola, il gioco parte subito
+    const small = !!o.small, lines = (small && window.TouchUI && TouchUI.touch && o.touchLines) ? o.touchLines : o.lines;
+    if (!small) this.helpOpen = true;
+    const fs = small ? 38 : 50, ts = small ? 50 : 70, step = small ? 78 : 125, pw = small ? 1500 : 1920;
+    const hgt = (small ? 130 : 150) + lines.length * step + (small ? 70 : 110), cy = small ? 330 : H / 2;
+    const c = this.add.container(W / 2, cy).setDepth(70).setAlpha(0), bg = this.add.graphics();
+    bg.fillStyle(0xf6e9cf, small ? 0.93 : 0.97); bg.fillRoundedRect(-pw / 2, -hgt / 2, pw, hgt, 26); bg.lineStyle(5, 0x2a1d14, 1); bg.strokeRoundedRect(-pw / 2, -hgt / 2, pw, hgt, 26);
+    const tx = (y, str, sz, col, st) => this.add.text(0, y, str, { fontFamily: 'Georgia, serif', fontStyle: st || 'normal', fontSize: sz + 'px', color: col, align: 'center', wordWrap: { width: pw - 100 } }).setOrigin(0.5);
+    c.add([bg, tx(-hgt / 2 + (small ? 60 : 90), o.title, ts, '#15217a', 'italic bold'), ...lines.map((l, i) => tx(-hgt / 2 + (small ? 150 : 220) + i * step, l, fs, '#2a1d14')),
+      tx(hgt / 2 - (small ? 38 : 60), small ? 'tocca un tasto o clicca per iniziare' : 'Premi un tasto o clicca per iniziare', small ? 28 : 38, '#6b5a47', 'italic')]);
     this.tweens.add({ targets: c, alpha: 1, duration: 350 });
+    let done = false;
     const close = () => {
-      if (!this.helpOpen) return; this.helpOpen = false;
+      if (done) return; done = true; this.helpOpen = false;
       this.input.keyboard.off('keydown', close); this.input.off('pointerdown', close);
       this.tweens.add({ targets: c, alpha: 0, duration: 300, onComplete: () => c.destroy() });
     };
-    this.time.delayedCall(600, () => { this.input.keyboard.on('keydown', close); this.input.on('pointerdown', close); });   // niente chiusure accidentali subito
+    this.time.delayedCall(small ? 300 : 600, () => { this.input.keyboard.on('keydown', close); this.input.on('pointerdown', close); });   // niente chiusure accidentali subito
+    if (small) this.time.delayedCall(9000, close);                      // la piccola sparisce da sola dopo 9 secondi
   }
 
   bossHelp() {                                                         // istruzioni a inizio livello
@@ -2418,6 +2449,7 @@ class LevelScene extends Phaser.Scene {
   }
 
   buildHint() {
+    return;                                                              // niente più scritta con le istruzioni in alto nei livelli
     const t = this.add.text(W / 2, 62, this.cfg.hint,
       { fontFamily: 'Georgia, serif', fontStyle: 'italic', fontSize: '30px', color: '#6b4a3a', align: 'center', wordWrap: { width: 1700 } })
       .setOrigin(0.5, 0).setDepth(30);
@@ -2819,6 +2851,7 @@ class LevelScene extends Phaser.Scene {
   update(time, delta) {
     if (this.cfg.ascent) { this.updateAscent(delta); return; }
     if (this.cfg.boss) { this.updateBoss(delta); return; }
+    this.updateIdleMonster(delta / 1000);
     const dt = Math.min(delta / 1000, 0.05);
     const b = this.pBody, s = this.ps, cfg = this.cfg;
 
@@ -3363,7 +3396,7 @@ LevelScene.helpSeen = {};
 class BootScene extends Phaser.Scene {
   constructor() { super('Boot'); }
   create() {
-    const lv = parseInt(QS.get('level'), 10);
+    const lv = QS.get('finale') === '1' ? 9 : parseInt(QS.get('level'), 10);          // ?finale=1 : va al livello 9 e fa partire subito il video finale (per vederlo)
     if (lv) { this.scene.start('Level', { level: lv }); return; }
     window.beginGame = (level, lives) => this.scene.start('Level', { level: level || 1, lives: lives });
     if (window.__pendingGame) { const pg = window.__pendingGame; window.__pendingGame = null; window.beginGame(pg.level, pg.lives); }
