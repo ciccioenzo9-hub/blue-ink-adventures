@@ -25,6 +25,12 @@
   #menuImg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: fill; user-select: none; -webkit-user-drag: none; }
   .mi { position: absolute; margin: 0; padding: 0; border: 0; background: transparent; cursor: pointer; border-radius: 14px; transition: background .2s, box-shadow .2s; color: #1a1411; font: inherit; }
   .mi:hover, .mi:focus-visible { background: rgba(110,160,255,.16); box-shadow: 0 0 28px rgba(110,160,255,.55); outline: none; }
+  .mi::after { content: ''; position: absolute; left: 5%; right: 5%; bottom: 7%; height: 7%; border-radius: 50%; transform: scaleX(0); transform-origin: left center; transition: transform .28s ease;
+    background: linear-gradient(90deg, rgba(27,47,224,0) 0%, rgba(27,47,224,.9) 7%, rgba(20,34,170,.95) 50%, rgba(27,47,224,.9) 93%, rgba(27,47,224,0) 100%); filter: blur(.4px); pointer-events: none; }   /* come un tratto di penna appena disegnato */
+  .mi:hover::after, .mi:focus-visible::after, .mi.sel::after { transform: scaleX(1); }
+  .mi.sel { background: rgba(110,160,255,.16); box-shadow: 0 0 28px rgba(110,160,255,.55); }
+  .mi.dim::after { display: none; }
+  .clabel { position: absolute; text-align: center; pointer-events: none; font: italic 500 calc(var(--u) * 1.45)/1 'Playfair Display', Georgia, serif; color: rgba(20,34,170,.9); letter-spacing: .04em; }
   .mi.dim { opacity: .55; }
   .mi.txt { font-family: 'Playfair Display', 'Cormorant Garamond', Georgia, serif; font-style: italic; font-weight: 500; text-transform: uppercase; letter-spacing: .03em; font-size: calc(var(--u) * 3.0); line-height: 1; text-shadow: 0 0 1px rgba(26,20,17,.35); white-space: nowrap; }
   /* pannello sulla pagina destra del libro (opzioni, spiegazioni, livelli) */
@@ -90,8 +96,9 @@
       <button class="mi" data-act="new"    aria-label="Nuovo gioco" style="left:24.26%;top:27.47%;width:21.54%;height:7.30%"></button>
       <button class="mi" data-act="opts"   aria-label="Opzioni"     style="left:27.17%;top:36.86%;width:15.14%;height:6.26%"></button>
       <button class="mi" data-act="cont"   aria-label="Continua"    style="left:25.62%;top:46.59%;width:17.86%;height:6.40%"></button>
+      <div class="clabel" id="clabel" style="left:25.62%;top:52.5%;width:17.86%"></div>
       <button class="mi" data-act="help"   aria-label="Spiegazioni" style="left:23.29%;top:56.68%;width:21.74%;height:7.30%"></button>
-      <button class="mi txt" data-act="exit" aria-label="Esci" style="left:27.17%;top:66.41%;width:15.14%;height:6.95%">Esci</button>
+      <button class="mi" data-act="exit" aria-label="Esci" style="left:27.72%;top:64.39%;width:12.93%;height:8.55%"></button>
       <div id="panel"></div>
       <div id="toast"></div>
     </div>
@@ -498,6 +505,9 @@ const LEVELS = {
       hudOff: { x: -32, y: -48 }, hudW: 262, hudFont: 28, hudTextDx: 150, hudTextDy: 38,
       heartsOff: { x: 60, y: 8 }, heartsStep: 62, heartsScale: 0.85, next: 7, keepState: false,                          // se muori (es. cadi nell'inchiostro) la stanza riparte dall'inizio
       spawn: { x: 300 * S6, y: 525 * S6 },
+      helpIntro: { small: true, title: 'LA MELODIA DEI FIORI',
+        lines: ['Porta l’ingranaggio dorato al grammofono e premi E', 'Suona i fiori con E, vicino allo stelo, come la melodia', 'Per riascoltarla, torna al grammofono e premi E'],
+        touchLines: ['Porta l’ingranaggio dorato al grammofono e tocca E', 'Suona i fiori con E, vicino allo stelo, come la melodia', 'Per riascoltarla, torna al grammofono e tocca E'] },
       terrain: [
         Q([[45, 503], [245, 503]]),                                                  // cima del pilastro (grammofono)
         Q([[245, 525], [520, 525]]),                                                 // cornicione di pietra (si allunga fino sotto il fiore: dal 3° o 4° gradino lo si raggiunge saltando)
@@ -3121,9 +3131,12 @@ function startGame(level, lives) {
   window.addEventListener('resize', fit); fit();
   const applyVideoVol = () => { const p = Prefs.get(); v.muted = p.muted; v.volume = Math.max(0, Math.min(1, p.music)); };
   let menuReady = false;
+  let selIdx = -1;                                                   // voce scelta con la tastiera (-1 = nessuna)
+  const menuItems = () => [...menu.querySelectorAll('.mi')].filter(b => !b.classList.contains('dim'));
+  const setSel = (i) => { menu.querySelectorAll('.mi').forEach(b => b.classList.remove('sel')); selIdx = i; const it = menuItems(); if (it[i]) it[i].classList.add('sel'); };
   const menuOn = () => { if (menuReady) return; menuReady = true; fit(); menu.classList.add('on'); skip.style.display = 'none'; refreshContinue(); };
   const flash = (t) => { toastEl.textContent = t; toastEl.classList.add('show'); clearTimeout(flash.t); flash.t = setTimeout(() => toastEl.classList.remove('show'), 2200); };
-  const refreshContinue = () => { const b = menu.querySelector('[data-act=cont]'), sv = Save.get(); if (b) b.classList.toggle('dim', !(sv && LEVELS[sv.level])); };
+  const refreshContinue = () => { const b = menu.querySelector('[data-act=cont]'), sv = Save.get(); const ok = !!(sv && LEVELS[sv.level]); if (b) b.classList.toggle('dim', !ok); const lb = document.getElementById('clabel'); if (lb) lb.textContent = ok ? 'Stanza ' + sv.level : ''; };
 
   /* ---------- pannelli sulla pagina destra ---------- */
   const closePanel = () => { panel.classList.remove('open'); panel.innerHTML = ''; panel.dataset.kind = ''; };
@@ -3199,7 +3212,7 @@ function startGame(level, lives) {
 
   // torna al libro con il menu (usato dal game over): niente video, solo l'immagine del menu
   window.showMenu = () => {
-    gameStarted = false; menuReady = false; closePanel(); v.pause();
+    gameStarted = false; menuReady = false; closePanel(); v.pause(); setSel(-1);
     if (window.TouchUI) TouchUI.set(null);
     { const bf = document.getElementById('bgfill'); if (bf) bf.style.opacity = '0'; }
     menu.classList.remove('on');
@@ -3216,10 +3229,16 @@ function startGame(level, lives) {
   wrap.addEventListener('pointerdown', () => { if (!menuReady) toEnd(); });
   document.addEventListener('keydown', (e) => {
     if (gameStarted) return;
-    if (e.key === 'Enter') { if (menuReady) { if (!panel.classList.contains('open')) ACT.new(); } else toEnd(); }
+    if (menuReady && !panel.classList.contains('open')) {
+      const n = menuItems().length;
+      if (e.key === 'ArrowDown') { e.preventDefault(); setSel(selIdx < 0 ? 0 : (selIdx + 1) % n); return; }
+      if (e.key === 'ArrowUp') { e.preventDefault(); setSel(selIdx < 0 ? n - 1 : (selIdx - 1 + n) % n); return; }
+      if ((e.key === ' ' || e.key === 'Spacebar') && selIdx >= 0) { e.preventDefault(); menuItems()[selIdx].click(); return; }
+    }
+    if (e.key === 'Enter') { if (menuReady) { if (!panel.classList.contains('open')) { if (selIdx >= 0 && menuItems()[selIdx]) menuItems()[selIdx].click(); else ACT.new(); } } else toEnd(); }
     if (e.key === 'Escape') { if (panel.classList.contains('open')) closePanel(); else if (!menuReady) toEnd(); }
   });
-  if (QS.get('level')) { wrap.style.display = 'none'; return; }   // ?level=N salta intro e menu (sviluppo)
+  if (QS.get('level') || QS.get('finale') === '1') { wrap.style.display = 'none'; return; }   // ?level=N salta intro e menu (sviluppo)
   applyVideoVol();
   // Il video parte SEMPRE da solo. Si prova con l'audio; se il browser lo blocca (regola dei browser: serve un gesto
   // dell'utente) parte comunque muto e il suono si attiva al primo clic/tasto, senza saltare l'intro.
